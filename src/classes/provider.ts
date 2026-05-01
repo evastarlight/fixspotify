@@ -63,3 +63,10 @@ export interface ProviderOptions {
     artist?: string;
     id?: string;
 }
+
+export enum ProviderId {
+    Generic,
+    Spotify,
+    Tidal,
+    YouTube
+}

@@ -108,7 +108,7 @@ function createAnimatedText(current: string | undefined, previous: string, delay
 }
 
 async function fetchStats(): Promise<StatsData> {
-  const response = await fetch('https://fixspotify.com/stats');
+  const response = await fetch('/stats');
   return await response.json();
 }
 

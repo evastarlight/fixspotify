@@ -1,8 +1,9 @@
 import { Artist, Client as SpotifyApiClient, Track } from "spotify-api.js";
 import { TrackCache } from "../cache/impl/track.js";
 import { AlbumCache } from "../cache/impl/album.js";
-import AnalyticsManager from "../analytics/analyticsManager.js";
 import StatsManager from "../manager/statsManager.js";
+import ImageManager from "../database/imageManager.js";
+import { ImageSource } from "../database/entities/image.entity.js";
 
 export default class SpotifyClient {
 
@@ -71,15 +72,6 @@ export default class SpotifyClient {
             return null;
         }
 
-        AnalyticsManager.sendEvent("track", {
-            id: track.id,
-            name: track.name,
-            artists: track.artists,
-            album: track.album,
-            duration: track.duration,
-            releaseDate: track.releaseDate,
-        });
-
         StatsManager.addRequest("track", track.id, track.name, track.artists, `https://i.scdn.co/image/${track.albumArt}`);
 
         return {
@@ -104,13 +96,6 @@ export default class SpotifyClient {
         if (!album) {
             return null;
         }
-
-        AnalyticsManager.sendEvent("album", {
-            id: album.id,
-            name: album.name,
-            artists: album.artists,
-            releaseDate: album.releaseDate,
-        });
 
         StatsManager.addRequest("album", album.id, album.name, album.artists, `https://i.scdn.co/image/${album.image}`);
 
@@ -145,14 +130,6 @@ export default class SpotifyClient {
         if (!playlist) {
             return null;
         }
-
-        AnalyticsManager.sendEvent("playlist", {
-            id: playlist.id,
-            name: playlist.name,
-            description: playlist.description,
-            owner: playlist.owner.displayName,
-            tracks: playlist.totalTracks
-        });
 
         StatsManager.addRequest("playlist", playlist.id, playlist.name, playlist.owner.displayName || "", playlist.images[0].url);
 
@@ -194,14 +171,6 @@ export default class SpotifyClient {
         if (!artist) {
             return null;
         }
-
-        AnalyticsManager.sendEvent("artist", {
-            id: artist.id,
-            name: artist.name,
-            genres: artist.genres?.join(", ") || "",
-            totalFollowers: artist.totalFollowers,
-            popularity: artist.popularity
-        });
 
         StatsManager.addRequest("artist", artist.id, artist.name, artist.genres?.join(", ") || "", artist.images![0].url);
 

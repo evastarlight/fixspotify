@@ -18,11 +18,11 @@ const url = new URL(location.href)
 const type = url.searchParams.get("type")
 const id = url.searchParams.get("id")
 if (!type || !id) {
-    document.body.innerHTML = "Invalid parameters"
-    throw new Error("Invalid parameters")
+  document.body.innerHTML = "Invalid parameters"
+  throw new Error("Invalid parameters")
 }
 
-function getColors(image: HTMLImageElement): Promise<{ac: string, bg: string}> {
+function getColors(image: HTMLImageElement): Promise<{ ac: string, bg: string }> {
   return new Promise((resolve, reject) => {
     const colorThief = new ColorThief();
 
@@ -37,13 +37,13 @@ function getColors(image: HTMLImageElement): Promise<{ac: string, bg: string}> {
         });
       }
     } else {
-        const color = colorThief.getColor(image);
-        const ac = correctColor(color);
-        const bg = correctColor(color, 8);
-        resolve({
-          ac: `rgb(${ac[0]}, ${ac[1]}, ${ac[2]})`,
-          bg: `rgb(${bg[0]}, ${bg[1]}, ${bg[2]})`
-        });
+      const color = colorThief.getColor(image);
+      const ac = correctColor(color);
+      const bg = correctColor(color, 8);
+      resolve({
+        ac: `rgb(${ac[0]}, ${ac[1]}, ${ac[2]})`,
+        bg: `rgb(${bg[0]}, ${bg[1]}, ${bg[2]})`
+      });
     }
   })
 }
@@ -98,8 +98,8 @@ function addTrack(options: {
   tracksContainer.appendChild(track);
 }
 
-async function fetchData(): Promise<ItemData>  {
-  const response = await fetch(`https://open.fixspotify.com/api/info/${type}/${id}`);
+async function fetchData(): Promise<ItemData> {
+  const response = await fetch(`/api/info/${type}/${id}`);
   return await response.json();
 }
 
@@ -128,13 +128,13 @@ export async function initVisualizer() {
       if (albumEl) albumEl.textContent = data.album;
       if (artistEl) artistEl.textContent = data.artists;
       data.tracks!.forEach((track, index) => {
-          addTrack({
-              number: index + 1,
-              id: track.id,
-              name: track.name,
-              artists: track.artists,
-              duration: track.duration
-          })
+        addTrack({
+          number: index + 1,
+          id: track.id,
+          name: track.name,
+          artists: track.artists,
+          duration: track.duration
+        })
       })
       break;
     case 'artist':
@@ -146,7 +146,7 @@ export async function initVisualizer() {
     default:
       break;
   }
-  
+
   const coverColor = await getColors(coverEl);
   container.setAttribute("style", `--coverColor: ${coverColor.ac}; --bgCoverColor: ${coverColor.bg}`);
 }
@@ -156,9 +156,9 @@ export function initProvidersRedirect() {
 
   if (types.includes(type!)) {
     const providersList = Object.entries(providers)
-    .filter(([_, provider]) => !provider.disabled)
-    .map(([_, provider]) => {
-      return `
+      .filter(([_, provider]) => !provider.disabled)
+      .map(([_, provider]) => {
+        return `
         <li class="provider-item" style="--providerColor: ${provider.color}">
           <a href="/redirect/${_}/${type}/${id}" class="provider">
             <img src="${provider.icon}" alt="${provider.name} icon">
@@ -166,7 +166,7 @@ export function initProvidersRedirect() {
           </a>
         </li>
       `;
-    }).join('');
+      }).join('');
 
     const availableProviders = `
       <section class="select-provider">

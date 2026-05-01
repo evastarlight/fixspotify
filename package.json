@@ -20,6 +20,10 @@
   "dependencies": {
     "@distube/ytsr": "github:orcachillin/ytsr",
     "@gurrrrrrett3/protocol": "^1.0.1",
+    "@mikro-orm/core": "^7.0.13",
+    "@mikro-orm/postgresql": "^7.0.13",
+    "@mikro-orm/reflection": "^7.0.13",
+    "@paralleldrive/cuid2": "^3.3.0",
     "@rollup/plugin-replace": "^6.0.2",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
@@ -27,13 +31,18 @@
     "spotify-api.js": "^9.2.5"
   },
   "devDependencies": {
+    "@mikro-orm/cli": "^7.0.13",
     "@types/express": "^4.17.21",
     "@types/node": "^22.5.3",
     "@types/node-fetch": "^2.6.11",
     "colorthief": "^2.6.0",
     "concurrently": "^8.2.2",
     "nodemon": "^3.1.4",
+    "tsx": "^4.21.0",
     "typescript": "^5.5.4",
     "vite": "^5.4.3"
+  },
+  "mikro-orm": {
+    "configFile": "src/database/mikro-orm.config.ts"
   }
 }

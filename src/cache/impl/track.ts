@@ -1,6 +1,8 @@
 import UpdateableCache from "../updatableCache.js";
 import ClientManager from "../../manager/clientManager.js";
 import RequestErrorHandler from "../../manager/requestErrorHandler.js";
+import ImageManager from "../../database/imageManager.js";
+import { ImageSource } from "../../database/entities/image.entity.js";
 
 export interface MinimalTrack {
     id: string;
@@ -25,7 +27,8 @@ export const TrackCache = new UpdateableCache<MinimalTrack>(async (id: string) =
         return null;
     }
 
-    return {
+
+    const res = {
         id: track.id,
         name: track.name,
         artists: ClientManager.spotifyClient.formatArtists(track.artists),
@@ -39,6 +42,11 @@ export const TrackCache = new UpdateableCache<MinimalTrack>(async (id: string) =
         releaseDate: track.album ? ClientManager.spotifyClient.formatDate(track.album!.releaseDate, track.album!.releaseDatePrecision) : undefined,
         url: track.externalURL.spotify
     }
+
+    ImageManager.fetchImage(`https://i.scdn.co/image/${res.albumArt}`, ImageSource.Spotify)
+
+
+
 }, {
     staleDataThreshold: -1,
 });

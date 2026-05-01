@@ -12,21 +12,24 @@ rmSync(resolve("./node_modules/@distube/ytsr/dumps/"), {
 import Webserver from "./server/index.js";
 import TemplateManager from "./manager/templateManager.js";
 import ProviderManager from "./manager/providerManager.js";
-import AnalyticsManager from "./analytics/analyticsManager.js";
 import StatsManager from "./manager/statsManager.js";
 import ClientManager from "./manager/clientManager.js";
+import Database from "./database/index.js";
+import ImageManager from "./database/imageManager.js";
 
-const server = new Webserver();
+export const database = new Database()
+
+export const server = new Webserver();
+
+await database.init()
 
 server.start();
 TemplateManager.loadTemplates();
 ClientManager.init();
 ProviderManager.loadProviders();
 StatsManager.init();
+ImageManager.init()
 
-if (process.env.ANALYTICS_ENABLED === "true") {
-    AnalyticsManager.init(process.env.ANALYTICS_INSTANCE_ID as string);
-}
 
 export function setMaintenanceMode(mode: boolean) {
     if (mode) {
