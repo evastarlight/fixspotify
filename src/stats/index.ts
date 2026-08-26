@@ -190,7 +190,12 @@ export class Stats extends DurableObject<Env> {
   override async alarm(): Promise<void> {
     if (this.dirty) {
       this.dirty = false;
-      await this.ctx.storage.put(STORAGE_KEY, this.stored);
+      try {
+        await this.ctx.storage.put(STORAGE_KEY, this.stored);
+      } catch (err) {
+        this.dirty = true;
+        throw err;
+      }
     }
     if (this.pending.size === 0) return;
     const hits = [...this.pending.values()];

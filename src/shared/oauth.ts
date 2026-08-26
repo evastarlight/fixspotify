@@ -59,8 +59,12 @@ export async function clientCredentialsToken(
   const body = TokenResponse.parse(await res.json());
   const token: StoredToken = { token: body.access_token, expiresAt: now + body.expires_in * 1000 };
   memo.set(key, token);
-  // kv min ttl is 60
-  await kv.put(key, JSON.stringify(token), { expirationTtl: Math.max(60, body.expires_in - 60) });
+  // kv min ttl is 60, and a failed write shouldnt fail the request
+  await kv
+    .put(key, JSON.stringify(token), { expirationTtl: Math.max(60, body.expires_in - 60) })
+    .catch((err: unknown) => {
+      console.error("token cache write failed", { service: creds.service, err });
+    });
   return token.token;
 }
 

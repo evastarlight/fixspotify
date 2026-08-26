@@ -89,7 +89,13 @@ function createAnimatedDigits(current: number, previous?: number): string {
   return container;
 }
 
-function createAnimatedText(current: string | undefined, previous: string, delay: number): string {
+// names come from spotify and anyone can name a playlist <script>
+const escapeHtml = (s: string | undefined) =>
+  (s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c)
+
+function createAnimatedText(rawCurrent: string | undefined, rawPrevious: string, delay: number): string {
+  const current = escapeHtml(rawCurrent)
+  const previous = escapeHtml(rawPrevious)
   let container = '<section class="animated-text">';
 
   if (current !== previous) {
@@ -180,7 +186,7 @@ async function updateStats() {
       if (lastRequestTitle) lastRequestTitle.outerHTML = createAnimatedText(data.lastRequests[0].name, previousValues.lastRequests[0].name, 100);
       if (lastRequestArtist) lastRequestArtist.outerHTML = createAnimatedText(data.lastRequests[0].description, previousValues.lastRequests[0].description, 200);
       if (lastRequest.image) {
-        const imageUrl = lastRequest.type === "album" ? lastRequest.image.slice(24) : lastRequest.image;
+        const imageUrl = lastRequest.image;
 
         if (imageUrl !== lastRequestImage.src && imageUrl !== previousValues.lastRequests[0].image) {
           lastRequestImage.alt = `Cover of ${lastRequest.name} by ${lastRequest.description}`;

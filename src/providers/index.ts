@@ -1,3 +1,4 @@
+import { cached } from "../shared/cache";
 import { type CatalogDeps, getAlbumSummary, getArtist, getTrackSummary } from "../spotify";
 import type { TidalClient, TidalKind } from "./tidal";
 import { searchYoutube, youtubeUrl } from "./youtube";
@@ -37,8 +38,12 @@ export interface Provider extends ProviderInfo {
 export interface ProviderDeps {
   readonly openOrigin: string;
   readonly tidal: TidalClient | undefined;
+  readonly ctx: ExecutionContext;
   readonly fetch?: typeof fetch | undefined;
 }
+
+// a search per click would hammer youtube and tidal, results dont change
+const SEARCH_TTL_SECONDS = 86_400;
 
 type Resolver = (input: ResolveInput) => Promise<string | undefined>;
 
@@ -68,7 +73,13 @@ export function createProviders(deps: ProviderDeps): Readonly<Record<string, Pro
       if (input.type !== "track" && input.type !== "album") return undefined;
       const kind = input.type === "track" ? "video" : "playlist";
       const suffix = input.type === "track" ? "audio" : "album";
-      const id = await searchYoutube(`${input.name} ${input.artist} ${suffix}`, kind, deps.fetch);
+      const query = `${input.name} ${input.artist} ${suffix}`;
+      const id = await cached({
+        key: `yt/${kind}/${query}`,
+        ttlSeconds: SEARCH_TTL_SECONDS,
+        ctx: deps.ctx,
+        load: () => searchYoutube(query, kind, deps.fetch),
+      });
       return id && youtubeUrl(kind, id, host);
     };
 
@@ -138,9 +149,16 @@ export function createProviders(deps: ProviderDeps): Readonly<Record<string, Pro
         supports: ["track", "album", "artist"],
       },
       async (input) => {
-        if (input.type === "playlist" || deps.tidal === undefined) return undefined;
+        const tidal = deps.tidal;
+        if (input.type === "playlist" || tidal === undefined) return undefined;
         const query = input.type === "artist" ? input.name : `${input.name} ${input.artist}`;
-        return deps.tidal.search(query, TIDAL_KIND[input.type]);
+        const kind = TIDAL_KIND[input.type];
+        return cached({
+          key: `tidal/${kind}/${query}`,
+          ttlSeconds: SEARCH_TTL_SECONDS,
+          ctx: deps.ctx,
+          load: () => tidal.search(query, kind),
+        });
       },
     ),
   ];

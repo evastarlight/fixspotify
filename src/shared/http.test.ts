@@ -20,4 +20,10 @@ describe("dispatch", () => {
   it("returns undefined when nothing matches", async () => {
     expect(await dispatch(routes, new URL("https://x.test/nope"), "ctx")).toBeUndefined();
   });
+
+  it("rejects malformed percent encoding as a bad request", async () => {
+    await expect(dispatch(routes, new URL("https://x.test/track/%E0%A4%A"), "ctx")).rejects.toThrow(
+      "malformed url",
+    );
+  });
 });

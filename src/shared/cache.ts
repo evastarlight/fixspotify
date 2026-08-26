@@ -11,7 +11,8 @@ export interface CachedOptions<T> {
 
 export async function cached<T>(opts: CachedOptions<T>): Promise<T | undefined> {
   const cache = opts.cache ?? caches.default;
-  const request = new Request(`${CACHE_ORIGIN}/${opts.key}`);
+  // keys can hold search queries, a ? or # in one would split the url
+  const request = new Request(`${CACHE_ORIGIN}/${encodeURIComponent(opts.key)}`);
 
   const hit = await cache.match(request);
   if (hit) return (await hit.json()) as T;

@@ -15,7 +15,15 @@ import {
 import { workerRegion } from "./region";
 import { cached } from "./shared/cache";
 import { BadRequestError, NotFoundError, UpstreamError } from "./shared/errors";
-import { dispatch, html, json, type Route, redirect, route } from "./shared/http";
+import {
+  dispatch,
+  html,
+  json,
+  type Route,
+  redirect,
+  route,
+  withSecurityHeaders,
+} from "./shared/http";
 import {
   type CatalogDeps,
   createSpotifyClient,
@@ -32,6 +40,7 @@ import { recordStat, statsSnapshot, statsTop } from "./stats";
 import { parseTopQuery, sinceDay } from "./stats/top";
 
 interface RequestContext {
+  readonly site: Site;
   readonly url: URL;
   readonly env: Env;
   readonly vars: Vars;
@@ -45,6 +54,8 @@ interface RequestContext {
 
 type Page = "index" | "config" | "view" | "error" | "about" | "stats";
 const TOP_CACHE_SECONDS = 60;
+// every open tab polls this, keep it off the durable object
+const STATS_CACHE_SECONDS = 5;
 const SPOTIFY_IMAGE_ID = /^[a-f0-9]{40}$/i;
 const LINK_TOKEN = /^[A-Za-z0-9]{1,32}$/;
 const CONVERT_PLAYLIST_LIMIT = 50;
@@ -76,7 +87,14 @@ const embedRoute = (kind: EmbedKind): Route<RequestContext> =>
 
 const statsRoute: Route<RequestContext> = route("/api/stats", async (rc) => {
   const since = Number(rc.url.searchParams.get("since")) || 0;
-  return json(await statsSnapshot(rc.env, since));
+  if (since > 0) return json(await statsSnapshot(rc.env, since));
+  const snapshot = await cached({
+    key: "stats/snapshot",
+    ttlSeconds: STATS_CACHE_SECONDS,
+    ctx: rc.ctx,
+    load: () => statsSnapshot(rc.env, 0),
+  });
+  return json(snapshot);
 });
 
 const statsPageRoute: Route<RequestContext> = route("/stats", (rc) => page(rc, "stats"));
@@ -255,10 +273,12 @@ const openRoutes: readonly Route<RequestContext>[] = [
     const upstream = await fetch(`https://i.scdn.co/image/${id}`, {
       cf: { cacheEverything: true, cacheTtl: IMAGE_CACHE_SECONDS },
     });
-    if (!upstream.ok) throw new NotFoundError("image", id);
+    const contentType = upstream.headers.get("content-type") ?? "";
+    // never relay anything but an image on our own origin
+    if (!upstream.ok || !contentType.startsWith("image/")) throw new NotFoundError("image", id);
     return new Response(upstream.body, {
       headers: {
-        "content-type": upstream.headers.get("content-type") ?? "image/jpeg",
+        "content-type": contentType,
         "cache-control": `public, max-age=${IMAGE_CACHE_SECONDS}`,
       },
     });
@@ -326,12 +346,13 @@ function buildContext(
       : undefined;
 
   return {
+    site,
     url,
     env,
     vars,
     ctx,
     spotify,
-    providers: createProviders({ openOrigin, tidal }),
+    providers: createProviders({ openOrigin, tidal, ctx }),
     mainOrigin,
     openOrigin,
     colo: request.cf?.colo ?? "unknown",
@@ -375,9 +396,9 @@ export async function handleRequest(
 
   const rc = buildContext(request, env, ctx, vars);
   try {
-    const site = resolveSite(new URL(request.url).hostname, vars);
-    return (await dispatch(ROUTES[site], rc.url, rc)) ?? (await page(rc, "error", 404));
+    const res = (await dispatch(ROUTES[rc.site], rc.url, rc)) ?? (await page(rc, "error", 404));
+    return withSecurityHeaders(res);
   } catch (err) {
-    return errorResponse(rc, err);
+    return withSecurityHeaders(await errorResponse(rc, err));
   }
 }

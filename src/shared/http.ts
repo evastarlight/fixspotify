@@ -1,3 +1,5 @@
+import { BadRequestError } from "./errors";
+
 export function json(data: unknown, init: ResponseInit = {}): Response {
   const headers = new Headers(init.headers);
   headers.set("content-type", "application/json; charset=utf-8");
@@ -13,6 +15,14 @@ export function html(body: string, init: ResponseInit = {}): Response {
 
 export function redirect(location: string, status: 301 | 302 | 307 | 308 = 302): Response {
   return new Response(null, { status, headers: { location } });
+}
+
+export function withSecurityHeaders(res: Response): Response {
+  const headers = new Headers(res.headers);
+  headers.set("x-content-type-options", "nosniff");
+  headers.set("referrer-policy", "strict-origin-when-cross-origin");
+  headers.set("x-frame-options", "SAMEORIGIN");
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
 }
 
 export type RouteParams = Readonly<Record<string, string>>;
@@ -33,6 +43,14 @@ export function route<TContext>(
   return { pattern: new URLPattern({ pathname }), handler };
 }
 
+function decodeParam(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    throw new BadRequestError("malformed url");
+  }
+}
+
 export async function dispatch<TContext>(
   routes: readonly Route<TContext>[],
   url: URL,
@@ -43,7 +61,7 @@ export async function dispatch<TContext>(
     if (!match) continue;
     const params: Record<string, string> = {};
     for (const [key, value] of Object.entries(match.pathname.groups)) {
-      if (value !== undefined) params[key] = decodeURIComponent(value);
+      if (value !== undefined) params[key] = decodeParam(value);
     }
     return r.handler(rc, params);
   }
