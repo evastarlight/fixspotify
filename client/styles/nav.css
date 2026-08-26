@@ -47,7 +47,7 @@ nav .nav-menu .nav-link:hover {
 	background-color: var(--softGrey);
 }
 
-nav .nav-menu li:not(:first-child) .nav-link::after {
+nav .nav-menu .nav-link[target="_blank"]::after {
 	content: "↗";
 	font-family: "Inter", sans-serif;
 }

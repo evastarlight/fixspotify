@@ -112,6 +112,12 @@ aside, main {
 	text-wrap-style: balance;
 }
 
+.story {
+	max-width: 62ch;
+	line-height: 1.6;
+	text-wrap-style: pretty;
+}
+
 .tips {
 	display: flex;
 	flex-direction: column;

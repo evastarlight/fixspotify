@@ -41,7 +41,7 @@ interface RequestContext {
   readonly colo: string;
 }
 
-type Page = "index" | "config" | "view" | "error";
+type Page = "index" | "config" | "view" | "error" | "about";
 const SPOTIFY_IMAGE_ID = /^[a-f0-9]{40}$/i;
 const LINK_TOKEN = /^[A-Za-z0-9]{1,32}$/;
 const CONVERT_PLAYLIST_LIMIT = 50;
@@ -150,6 +150,7 @@ const convertRoute: Route<RequestContext> = route("/api/convert", async (rc) => 
 
 const mainRoutes: readonly Route<RequestContext>[] = [
   route("/", (rc) => page(rc, "index")),
+  route("/about", (rc) => page(rc, "about")),
   statsRoute,
   regionRoute,
   convertRoute,
