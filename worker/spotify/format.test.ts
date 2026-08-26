@@ -15,7 +15,7 @@ describe("formatCount", () => {
   it("abbreviates with unit suffixes", () => {
     expect(formatCount(999)).toBe("999.00");
     expect(formatCount(1_234_567)).toBe("1.23M");
-    expect(formatCount(2_500_000_000, 1)).toBe("2.5B");
+    expect(formatCount(2_500_000_000)).toBe("2.50B");
   });
 });
 

@@ -2,14 +2,14 @@
   "$schema": "https://biomejs.dev/schemas/2.5.10/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
-    // client/ is upstream, not linted
+    // web/ is upstream, not linted
     "includes": [
-      "src/**",
+      "worker/**",
       "vite.config.ts",
       "vitest.config.ts",
       "!worker-configuration.d.ts",
       "!**/*.html",
-      "!src/colos.json"
+      "!worker/region/colos.json"
     ]
   },
   "formatter": { "indentStyle": "space", "lineWidth": 100 },

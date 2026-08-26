@@ -1,5 +1,6 @@
 import '../styles/topCharts.css'
 import placeholder from '../assets/images/placeholder.svg'
+import { escapeHtml } from '../scripts/escape.ts'
 
 interface Entry {
   id: string
@@ -26,9 +27,6 @@ type Type = (typeof TYPES)[number][0]
 
 let range: Range = '7d'
 
-const escape = (s: string) =>
-  s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c)
-
 const formatCount = (n: number) => new Intl.NumberFormat('en-US').format(n)
 
 const itemUrl = (type: Type, id: string) =>
@@ -51,15 +49,15 @@ function fetchTop(type: Type, r: Range): Promise<Entry[]> {
 
 function renderItem(type: Type, entry: Entry, rank: number) {
   const url = itemUrl(type, entry.id)
-  const name = escape(entry.name)
-  const title = url ? `<a class="name" href="${escape(url)}">${name}</a>` : `<span class="name">${name}</span>`
+  const name = escapeHtml(entry.name)
+  const title = url ? `<a class="name" href="${escapeHtml(url)}">${name}</a>` : `<span class="name">${name}</span>`
   return `
     <li${rank === 1 ? ' class="first"' : ''}>
       <span class="rank">${rank}</span>
-      <img src="${escape(entry.image || placeholder)}" alt="" loading="lazy" />
+      <img src="${escapeHtml(entry.image || placeholder)}" alt="" loading="lazy" />
       <div class="meta">
         ${title}
-        <span class="sub">${escape(entry.subtitle)}</span>
+        <span class="sub">${escapeHtml(entry.subtitle)}</span>
       </div>
       <span class="count">${formatCount(entry.count)}</span>
     </li>

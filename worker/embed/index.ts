@@ -1,20 +1,16 @@
 import { NotFoundError } from "../shared/errors";
 import {
   type AlbumSummary,
-  type Artist,
   type CatalogDeps,
-  formatArtists,
-  formatCount,
-  formatDuration,
   getAlbumSummary,
   getArtist,
   getPlaylist,
   getPlaylistTracks,
   getTrackSummary,
-  type Playlist,
-  type PlaylistTrack,
   type TrackSummary,
-} from "../spotify";
+} from "../spotify/catalog";
+import type { Artist, Playlist, PlaylistTrack } from "../spotify/client";
+import { formatArtists, formatCount, formatDuration } from "../spotify/format";
 import { renderTemplate } from "./render";
 import albumTemplate from "./templates/album.html";
 import artistTemplate from "./templates/artist.html";
@@ -26,14 +22,11 @@ import trackTemplate from "./templates/track.html";
 export const EMBED_KINDS = ["track", "album", "artist", "playlist"] as const;
 export type EmbedKind = (typeof EMBED_KINDS)[number];
 
-export function isEmbedKind(value: string): value is EmbedKind {
-  return (EMBED_KINDS as readonly string[]).includes(value);
-}
-
 export interface EmbedData {
   readonly id: string;
   readonly title: string;
   readonly subtitle: string;
+  readonly artist: string;
   readonly artistId: string;
   readonly image: string;
   readonly url: string;
@@ -50,6 +43,7 @@ export function trackEmbed(t: TrackSummary): EmbedData {
     id: t.id,
     title: t.name,
     subtitle: t.artists,
+    artist: t.primaryArtist,
     artistId: t.primaryArtistId,
     image: scdnImage(t.albumArtId),
     url: t.url,
@@ -69,6 +63,7 @@ export function albumEmbed(a: AlbumSummary): EmbedData {
     id: a.id,
     title: a.name,
     subtitle: a.artists,
+    artist: a.primaryArtist,
     artistId: a.primaryArtistId,
     image: a.imageUrl,
     url: a.url,
@@ -93,6 +88,7 @@ export function playlistEmbed(p: Playlist, tracks: readonly PlaylistTrack[]): Em
     id: p.id,
     title: p.name,
     subtitle: owner,
+    artist: "",
     artistId: "",
     image: p.images?.[0]?.url ?? "",
     url: p.external_urls.spotify,
@@ -117,6 +113,7 @@ export function artistEmbed(a: Artist): EmbedData {
     id: a.id,
     title: a.name,
     subtitle: genres,
+    artist: a.name,
     artistId: a.id,
     image: a.images[0]?.url ?? "",
     url: a.external_urls.spotify,
@@ -156,10 +153,6 @@ export async function loadEmbed(
       ]);
       if (!p) throw new NotFoundError(kind, id);
       return playlistEmbed(p, tracks);
-    }
-    default: {
-      const exhaustive: never = kind;
-      throw new Error(`unhandled embed kind: ${String(exhaustive)}`);
     }
   }
 }

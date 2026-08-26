@@ -3,22 +3,22 @@ import { resolve } from "node:path";
 import replace from "@rollup/plugin-replace";
 import { defineConfig, loadEnv } from "vite";
 
-const pagesDir = resolve(__dirname, "client/pages");
-const routes = Object.fromEntries(
-  readdirSync(pagesDir).map((page) => [page.replace(".html", ""), `client/pages/${page}`]),
+const pagesDir = resolve(__dirname, "web/pages");
+const pages = Object.fromEntries(
+  readdirSync(pagesDir).map((page) => [page.replace(".html", ""), `web/pages/${page}`]),
 );
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   return {
-    root: "client",
+    root: "web",
     build: {
       target: "esnext",
-      outDir: "../dist/client",
+      outDir: "../dist/web",
       assetsDir: "_",
       emptyOutDir: true,
       sourcemap: true,
-      rollupOptions: { input: routes },
+      rollupOptions: { input: pages },
     },
     plugins: [
       replace({

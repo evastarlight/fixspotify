@@ -1,5 +1,5 @@
 import { cached } from "../shared/cache";
-import { type CatalogDeps, getAlbumSummary, getArtist, getTrackSummary } from "../spotify";
+import { type CatalogDeps, getAlbumSummary, getArtist, getTrackSummary } from "../spotify/catalog";
 import type { TidalClient, TidalKind } from "./tidal";
 import { searchYoutube, youtubeUrl } from "./youtube";
 
@@ -39,11 +39,7 @@ export interface ProviderDeps {
   readonly openOrigin: string;
   readonly tidal: TidalClient | undefined;
   readonly ctx: ExecutionContext;
-  readonly fetch?: typeof fetch | undefined;
 }
-
-// a search per click would hammer youtube and tidal, results dont change
-const SEARCH_TTL_SECONDS = 86_400;
 
 type Resolver = (input: ResolveInput) => Promise<string | undefined>;
 
@@ -57,7 +53,8 @@ function defineProvider(info: ProviderInfo, resolve: Resolver): Provider {
   };
 }
 
-const ALL_TYPES = PROVIDER_TYPES;
+// a search per click would hammer youtube and tidal, results dont change
+const SEARCH_TTL_SECONDS = 86_400;
 const SEARCHABLE = ["track", "album"] as const;
 
 const TIDAL_KIND: Readonly<Record<"track" | "album" | "artist", TidalKind>> = {
@@ -72,13 +69,12 @@ export function createProviders(deps: ProviderDeps): Readonly<Record<string, Pro
     async (input) => {
       if (input.type !== "track" && input.type !== "album") return undefined;
       const kind = input.type === "track" ? "video" : "playlist";
-      const suffix = input.type === "track" ? "audio" : "album";
-      const query = `${input.name} ${input.artist} ${suffix}`;
+      const query = `${input.name} ${input.artist} ${input.type === "track" ? "audio" : "album"}`;
       const id = await cached({
         key: `yt/${kind}/${query}`,
         ttlSeconds: SEARCH_TTL_SECONDS,
         ctx: deps.ctx,
-        load: () => searchYoutube(query, kind, deps.fetch),
+        load: () => searchYoutube(query, kind),
       });
       return id && youtubeUrl(kind, id, host);
     };
@@ -91,7 +87,7 @@ export function createProviders(deps: ProviderDeps): Readonly<Record<string, Pro
         color: "#1DB954",
         icon: "spotify",
         disabled: false,
-        supports: ALL_TYPES,
+        supports: PROVIDER_TYPES,
       },
       async ({ type, id }) => `${deps.openOrigin}/view?type=${type}&id=${id}`,
     ),
@@ -102,7 +98,7 @@ export function createProviders(deps: ProviderDeps): Readonly<Record<string, Pro
         color: "#1DB954",
         icon: "spotify",
         disabled: false,
-        supports: ALL_TYPES,
+        supports: PROVIDER_TYPES,
       },
       async ({ type, id }) => `https://open.spotify.com/${type}/${id}`,
     ),
@@ -113,7 +109,7 @@ export function createProviders(deps: ProviderDeps): Readonly<Record<string, Pro
         color: "#1DB954",
         icon: "spotify",
         disabled: false,
-        supports: ALL_TYPES,
+        supports: PROVIDER_TYPES,
       },
       async ({ type, id }) => `spotify:${type}:${id}`,
     ),
@@ -195,9 +191,5 @@ export async function resolveProviderUrl(
     }
     case "playlist":
       return provider.resolve({ type, id });
-    default: {
-      const exhaustive: never = type;
-      throw new Error(`unhandled provider type: ${String(exhaustive)}`);
-    }
   }
 }

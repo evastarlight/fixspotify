@@ -15,11 +15,6 @@ export interface ClientCredentials {
   readonly clientSecret: string;
 }
 
-export interface OauthDeps {
-  readonly fetch?: typeof fetch | undefined;
-  readonly now?: (() => number) | undefined;
-}
-
 // memo first, kv second
 const memo = new Map<string, StoredToken>();
 
@@ -28,10 +23,8 @@ const kvKey = (service: string): string => `token:${service}`;
 export async function clientCredentialsToken(
   kv: KVNamespace,
   creds: ClientCredentials,
-  deps: OauthDeps = {},
 ): Promise<string> {
-  const now = (deps.now ?? Date.now)();
-  const fetchImpl = deps.fetch ?? fetch;
+  const now = Date.now();
   const key = kvKey(creds.service);
   const isFresh = (t: StoredToken | undefined): t is StoredToken =>
     t !== undefined && t.expiresAt - now > STALE_MARGIN_MS;
@@ -45,7 +38,7 @@ export async function clientCredentialsToken(
     return stored.data.token;
   }
 
-  const res = await fetchImpl(creds.tokenUrl, {
+  const res = await fetch(creds.tokenUrl, {
     method: "POST",
     headers: {
       authorization: `Basic ${btoa(`${creds.clientId}:${creds.clientSecret}`)}`,

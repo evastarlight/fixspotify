@@ -1,10 +1,16 @@
 import { z } from "zod";
-import { UpstreamError } from "../shared/errors";
+import { BadRequestError, UpstreamError } from "../shared/errors";
 import { clientCredentialsToken, invalidateToken } from "../shared/oauth";
 
 const API_ORIGIN = "https://api.spotify.com/v1";
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 const TIMEOUT_MS = 8_000;
+const SPOTIFY_ID = /^[A-Za-z0-9]{22}$/;
+
+export function parseSpotifyId(raw: string): string {
+  if (!SPOTIFY_ID.test(raw)) throw new BadRequestError(`invalid spotify id: ${raw}`);
+  return raw;
+}
 
 const ExternalUrls = z.object({ spotify: z.string() });
 const Image = z.object({ url: z.string() });
@@ -106,11 +112,9 @@ export interface SpotifyClientDeps {
   readonly kv: KVNamespace;
   readonly clientId: string;
   readonly clientSecret: string;
-  readonly fetch?: typeof fetch | undefined;
 }
 
 export function createSpotifyClient(deps: SpotifyClientDeps): SpotifyClient {
-  const fetchImpl = deps.fetch ?? fetch;
   const creds = {
     service: "spotify",
     tokenUrl: TOKEN_URL,
@@ -120,8 +124,8 @@ export function createSpotifyClient(deps: SpotifyClientDeps): SpotifyClient {
 
   async function get<T>(path: string, schema: z.ZodType<T>): Promise<T | undefined> {
     for (let attempt = 0; ; attempt++) {
-      const token = await clientCredentialsToken(deps.kv, creds, { fetch: fetchImpl });
-      const res = await fetchImpl(`${API_ORIGIN}/${path}`, {
+      const token = await clientCredentialsToken(deps.kv, creds);
+      const res = await fetch(`${API_ORIGIN}/${path}`, {
         headers: { authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
@@ -132,9 +136,7 @@ export function createSpotifyClient(deps: SpotifyClientDeps): SpotifyClient {
       }
       if (res.status === 429) {
         const retryAfter = Number(res.headers.get("retry-after"));
-        throw new UpstreamError("spotify", 429, {
-          retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
-        });
+        throw new UpstreamError("spotify", 429, retryAfter > 0 ? retryAfter : undefined);
       }
       if (!res.ok) throw new UpstreamError("spotify", res.status);
       return schema.parse(await res.json());

@@ -7,14 +7,12 @@ export function json(data: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(data), { ...init, headers });
 }
 
-export function html(body: string, init: ResponseInit = {}): Response {
-  const headers = new Headers(init.headers);
-  headers.set("content-type", "text/html; charset=utf-8");
-  return new Response(body, { ...init, headers });
+export function html(body: string): Response {
+  return new Response(body, { headers: { "content-type": "text/html; charset=utf-8" } });
 }
 
-export function redirect(location: string, status: 301 | 302 | 307 | 308 = 302): Response {
-  return new Response(null, { status, headers: { location } });
+export function redirect(location: string): Response {
+  return new Response(null, { status: 302, headers: { location } });
 }
 
 export function withSecurityHeaders(res: Response): Response {

@@ -1,13 +1,13 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "fixspotify",
-  "main": "src/index.ts",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-08-01",
   "observability": { "enabled": true },
   // run near spotify api
   "placement": { "mode": "smart" },
   "assets": {
-    "directory": "./dist/client",
+    "directory": "./dist/web",
     "binding": "ASSETS",
     "html_handling": "none",
     "not_found_handling": "none",

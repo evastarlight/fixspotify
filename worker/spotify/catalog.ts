@@ -11,7 +11,6 @@ export interface TrackSummary {
   readonly duration: string;
   readonly album: string;
   readonly albumArtId: string;
-  readonly images: readonly string[];
   readonly totalTracks: number;
   readonly trackNumber: number;
   readonly releaseDate: string;
@@ -46,7 +45,7 @@ export function imageId(url: string): string {
 }
 
 export function summarizeTrack(t: Track): TrackSummary {
-  const images = t.album.images.map((i) => imageId(i.url));
+  const cover = t.album.images[0];
   return {
     id: t.id,
     name: t.name,
@@ -55,8 +54,7 @@ export function summarizeTrack(t: Track): TrackSummary {
     primaryArtistId: t.artists[0]?.id ?? "",
     duration: formatDuration(t.duration_ms),
     album: t.album.name,
-    albumArtId: images[0] ?? "",
-    images,
+    albumArtId: cover ? imageId(cover.url) : "",
     totalTracks: t.album.total_tracks,
     trackNumber: t.track_number,
     releaseDate: formatReleaseDate(t.album.release_date, t.album.release_date_precision),
@@ -95,58 +93,37 @@ export interface CatalogDeps {
 const CATALOG_TTL_SECONDS = 3_600;
 const PLAYLIST_TTL_SECONDS = 300;
 
-export function getTrackSummary(id: string, deps: CatalogDeps): Promise<TrackSummary | undefined> {
-  return cached({
-    // v2: summaries grew primaryArtistId
-    key: `v2/track/${id}`,
-    ttlSeconds: CATALOG_TTL_SECONDS,
-    ctx: deps.ctx,
-    load: async () => {
-      const track = await deps.spotify.track(id);
-      return track && summarizeTrack(track);
-    },
-  });
-}
+const catalogCached = <T>(
+  key: string,
+  ttlSeconds: number,
+  deps: CatalogDeps,
+  load: () => Promise<T | undefined>,
+): Promise<T | undefined> => cached({ key, ttlSeconds, ctx: deps.ctx, load });
 
-export function getAlbumSummary(id: string, deps: CatalogDeps): Promise<AlbumSummary | undefined> {
-  return cached({
-    key: `v2/album/${id}`,
-    ttlSeconds: CATALOG_TTL_SECONDS,
-    ctx: deps.ctx,
-    load: async () => {
-      const album = await deps.spotify.album(id);
-      return album && summarizeAlbum(album);
-    },
+// v2: summaries grew primaryArtistId
+export const getTrackSummary = (id: string, deps: CatalogDeps): Promise<TrackSummary | undefined> =>
+  catalogCached(`v2/track/${id}`, CATALOG_TTL_SECONDS, deps, async () => {
+    const track = await deps.spotify.track(id);
+    return track && summarizeTrack(track);
   });
-}
 
-export function getArtist(id: string, deps: CatalogDeps): Promise<Artist | undefined> {
-  return cached({
-    key: `artist/${id}`,
-    ttlSeconds: CATALOG_TTL_SECONDS,
-    ctx: deps.ctx,
-    load: () => deps.spotify.artist(id),
+export const getAlbumSummary = (id: string, deps: CatalogDeps): Promise<AlbumSummary | undefined> =>
+  catalogCached(`v2/album/${id}`, CATALOG_TTL_SECONDS, deps, async () => {
+    const album = await deps.spotify.album(id);
+    return album && summarizeAlbum(album);
   });
-}
 
-export function getPlaylist(id: string, deps: CatalogDeps): Promise<Playlist | undefined> {
-  return cached({
-    key: `playlist/${id}`,
-    ttlSeconds: PLAYLIST_TTL_SECONDS,
-    ctx: deps.ctx,
-    load: () => deps.spotify.playlist(id),
-  });
-}
+export const getArtist = (id: string, deps: CatalogDeps): Promise<Artist | undefined> =>
+  catalogCached(`artist/${id}`, CATALOG_TTL_SECONDS, deps, () => deps.spotify.artist(id));
 
-export function getPlaylistTracks(
+export const getPlaylist = (id: string, deps: CatalogDeps): Promise<Playlist | undefined> =>
+  catalogCached(`playlist/${id}`, PLAYLIST_TTL_SECONDS, deps, () => deps.spotify.playlist(id));
+
+export const getPlaylistTracks = async (
   id: string,
   limit: number,
   deps: CatalogDeps,
-): Promise<readonly PlaylistTrack[]> {
-  return cached({
-    key: `playlist/${id}/tracks/${limit}`,
-    ttlSeconds: PLAYLIST_TTL_SECONDS,
-    ctx: deps.ctx,
-    load: () => deps.spotify.playlistTracks(id, limit),
-  }).then((tracks) => tracks ?? []);
-}
+): Promise<readonly PlaylistTrack[]> =>
+  (await catalogCached(`playlist/${id}/tracks/${limit}`, PLAYLIST_TTL_SECONDS, deps, () =>
+    deps.spotify.playlistTracks(id, limit),
+  )) ?? [];

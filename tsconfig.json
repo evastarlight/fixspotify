@@ -25,6 +25,6 @@
     "types": ["./worker-configuration.d.ts"],
     "skipLibCheck": true
   },
-  "include": ["src/**/*", "worker-configuration.d.ts"],
-  "exclude": ["node_modules", "dist", "client"]
+  "include": ["worker/**/*", "worker-configuration.d.ts"],
+  "exclude": ["node_modules", "dist", "web"]
 }

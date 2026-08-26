@@ -32,10 +32,6 @@ export function sinceDay(range: Range, now: number): number {
       return dayOf(now) - 29;
     case "all":
       return 0;
-    default: {
-      const exhaustive: never = range;
-      throw new Error(`unhandled range: ${String(exhaustive)}`);
-    }
   }
 }
 

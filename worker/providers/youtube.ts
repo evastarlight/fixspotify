@@ -8,12 +8,8 @@ const TIMEOUT_MS = 8_000;
 const FILTER = { video: "EgIQAQ==", playlist: "EgIQAw==" } as const;
 export type YoutubeKind = keyof typeof FILTER;
 
-export async function searchYoutube(
-  query: string,
-  kind: YoutubeKind,
-  fetchImpl: typeof fetch = fetch,
-): Promise<string | undefined> {
-  const res = await fetchImpl(SEARCH_URL, {
+export async function searchYoutube(query: string, kind: YoutubeKind): Promise<string | undefined> {
+  const res = await fetch(SEARCH_URL, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -27,7 +23,7 @@ export async function searchYoutube(
   return firstResultId(await res.json(), kind);
 }
 
-export function youtubeUrl(kind: YoutubeKind, id: string, host = "www.youtube.com"): string {
+export function youtubeUrl(kind: YoutubeKind, id: string, host: string): string {
   return kind === "video"
     ? `https://${host}/watch?v=${encodeURIComponent(id)}`
     : `https://${host}/playlist?list=${encodeURIComponent(id)}`;

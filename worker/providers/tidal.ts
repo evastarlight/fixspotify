@@ -30,11 +30,9 @@ export interface TidalClientDeps {
   readonly kv: KVNamespace;
   readonly clientId: string;
   readonly clientSecret: string;
-  readonly fetch?: typeof fetch | undefined;
 }
 
 export function createTidalClient(deps: TidalClientDeps): TidalClient {
-  const fetchImpl = deps.fetch ?? fetch;
   const creds = {
     service: "tidal",
     tokenUrl: TOKEN_URL,
@@ -44,13 +42,13 @@ export function createTidalClient(deps: TidalClientDeps): TidalClient {
 
   return {
     async search(query, kind) {
-      const token = await clientCredentialsToken(deps.kv, creds, { fetch: fetchImpl });
+      const token = await clientCredentialsToken(deps.kv, creds);
       const params = new URLSearchParams({
         "filter[query]": query,
         countryCode: COUNTRY_CODE,
         include: kind,
       });
-      const res = await fetchImpl(`${API_ORIGIN}/searchResults?${params}`, {
+      const res = await fetch(`${API_ORIGIN}/searchResults?${params}`, {
         headers: {
           authorization: `Bearer ${token}`,
           accept: "application/vnd.api+json",

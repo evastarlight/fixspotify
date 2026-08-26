@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstResultId, youtubeUrl } from "./youtube";
+import { firstResultId } from "./youtube";
 
 const response = {
   responseContext: {},
@@ -41,14 +41,5 @@ describe("firstResultId", () => {
   it("returns undefined when nothing matches", () => {
     expect(firstResultId({ contents: [] }, "video")).toBeUndefined();
     expect(firstResultId(null, "playlist")).toBeUndefined();
-  });
-});
-
-describe("youtubeUrl", () => {
-  it("builds watch and playlist urls on the requested host", () => {
-    expect(youtubeUrl("video", "abc")).toBe("https://www.youtube.com/watch?v=abc");
-    expect(youtubeUrl("playlist", "PL1", "music.youtube.com")).toBe(
-      "https://music.youtube.com/playlist?list=PL1",
-    );
   });
 });

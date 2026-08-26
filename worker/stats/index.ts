@@ -16,6 +16,7 @@ const RecentRequestSchema = z.object({
   addedAt: z.number(),
   type: z.enum(STAT_TYPES),
   id: z.string().default(""),
+  artist: z.string().default(""),
   artistId: z.string().default(""),
   name: z.string(),
   description: z.string(),
@@ -35,13 +36,7 @@ export interface StatsSnapshot {
 
 interface PendingHit {
   readonly day: number;
-  readonly type: StatType;
-  readonly id: string;
-  readonly name: string;
-  readonly subtitle: string;
-  readonly artist: string;
-  readonly artistId: string;
-  readonly image: string;
+  readonly entry: RecentRequest;
   weight: number;
 }
 
@@ -105,12 +100,6 @@ const emptyStored = (): Stored => ({
   recent: [],
 });
 
-const primaryArtist = (entry: RecentRequest): string => {
-  if (entry.type === "artist") return entry.name;
-  if (entry.type === "playlist") return "";
-  return entry.description.split(", ")[0] ?? "";
-};
-
 export class Stats extends DurableObject<Env> {
   private stored: Stored = emptyStored();
   private dirty = false;
@@ -139,19 +128,7 @@ export class Stats extends DurableObject<Env> {
       const key = `${day}|${entry.type}|${entry.id}`;
       const hit = this.pending.get(key);
       if (hit) hit.weight += weight;
-      else {
-        this.pending.set(key, {
-          day,
-          type: entry.type,
-          id: entry.id,
-          name: entry.name,
-          subtitle: entry.description,
-          artist: primaryArtist(entry),
-          artistId: entry.artistId,
-          image: entry.image,
-          weight,
-        });
-      }
+      else this.pending.set(key, { day, entry, weight });
     }
 
     if ((await this.ctx.storage.getAlarm()) === null) {
@@ -159,7 +136,7 @@ export class Stats extends DurableObject<Env> {
     }
   }
 
-  async snapshot(since = 0): Promise<StatsSnapshot> {
+  async snapshot(): Promise<StatsSnapshot> {
     const c = this.stored.counts;
     return {
       counts: {
@@ -169,7 +146,7 @@ export class Stats extends DurableObject<Env> {
         artist: Math.round(c.artist),
         playlist: Math.round(c.playlist),
       },
-      lastRequests: this.stored.recent.filter((r) => r.addedAt >= since),
+      lastRequests: this.stored.recent,
     };
   }
 
@@ -200,18 +177,18 @@ export class Stats extends DurableObject<Env> {
     if (this.pending.size === 0) return;
     const hits = [...this.pending.values()];
     this.ctx.storage.transactionSync(() => {
-      for (const h of hits) {
+      for (const { day, entry, weight } of hits) {
         this.ctx.storage.sql.exec(
           UPSERT,
-          h.day,
-          h.type,
-          h.id,
-          h.name,
-          h.subtitle,
-          h.artist,
-          h.artistId,
-          h.image,
-          h.weight,
+          day,
+          entry.type,
+          entry.id,
+          entry.name,
+          entry.description,
+          entry.artist,
+          entry.artistId,
+          entry.image,
+          weight,
         );
       }
     });
@@ -243,8 +220,8 @@ export function recordStat(
   );
 }
 
-export function statsSnapshot(env: Env, since: number): Promise<StatsSnapshot> {
-  return globalStats(env).snapshot(since);
+export function statsSnapshot(env: Env): Promise<StatsSnapshot> {
+  return globalStats(env).snapshot();
 }
 
 export function statsTop(

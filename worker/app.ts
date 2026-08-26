@@ -25,17 +25,14 @@ import {
   withSecurityHeaders,
 } from "./shared/http";
 import {
-  type CatalogDeps,
-  createSpotifyClient,
   getAlbumSummary,
   getArtist,
   getPlaylist,
   getPlaylistTracks,
   getTrackSummary,
   imageId,
-  parseSpotifyId,
-  type SpotifyClient,
-} from "./spotify";
+} from "./spotify/catalog";
+import { createSpotifyClient, parseSpotifyId, type SpotifyClient } from "./spotify/client";
 import { recordStat, statsSnapshot, statsTop } from "./stats";
 import { shouldCount } from "./stats/dedupe";
 import { parseTopQuery, sinceDay } from "./stats/top";
@@ -68,13 +65,11 @@ async function page(rc: RequestContext, name: Page, status = 200): Promise<Respo
   return new Response(asset.body, { status, headers: asset.headers });
 }
 
-const catalogDeps = (rc: RequestContext): CatalogDeps => ({ spotify: rc.spotify, ctx: rc.ctx });
-
 const embedRoute = (kind: EmbedKind): Route<RequestContext> =>
   route(`/${kind}/:id`, async (rc, { id = "" }) => {
     const spotifyId = parseSpotifyId(id);
     const [data, count] = await Promise.all([
-      loadEmbed(kind, spotifyId, catalogDeps(rc)),
+      loadEmbed(kind, spotifyId, rc),
       shouldCount({
         ip: rc.ip,
         type: kind,
@@ -88,6 +83,7 @@ const embedRoute = (kind: EmbedKind): Route<RequestContext> =>
         addedAt: Date.now(),
         type: kind,
         id: spotifyId,
+        artist: data.artist,
         artistId: data.artistId,
         name: data.title,
         description: data.subtitle,
@@ -98,17 +94,16 @@ const embedRoute = (kind: EmbedKind): Route<RequestContext> =>
     return html(renderEmbed(kind, data, rc.openOrigin));
   });
 
-const statsRoute: Route<RequestContext> = route("/api/stats", async (rc) => {
-  const since = Number(rc.url.searchParams.get("since")) || 0;
-  if (since > 0) return json(await statsSnapshot(rc.env, since));
-  const snapshot = await cached({
-    key: "stats/snapshot",
-    ttlSeconds: STATS_CACHE_SECONDS,
-    ctx: rc.ctx,
-    load: () => statsSnapshot(rc.env, 0),
-  });
-  return json(snapshot);
-});
+const statsRoute: Route<RequestContext> = route("/api/stats", async (rc) =>
+  json(
+    await cached({
+      key: "stats/snapshot",
+      ttlSeconds: STATS_CACHE_SECONDS,
+      ctx: rc.ctx,
+      load: () => statsSnapshot(rc.env),
+    }),
+  ),
+);
 
 const statsPageRoute: Route<RequestContext> = route("/stats", (rc) => page(rc, "stats"));
 
@@ -156,37 +151,27 @@ const convertRoute: Route<RequestContext> = route("/api/convert", async (rc) => 
     );
   }
   const id = parseSpotifyId(rawId);
-  const deps = catalogDeps(rc);
 
   switch (type) {
-    case "track":
-    case "artist":
     case "playlist": {
-      if (type === "playlist" && provider.supports.includes("playlist")) {
-        const url = await resolveProviderUrl(provider, type, id, deps);
-        return json({ success: true, url });
+      if (provider.supports.includes("playlist")) {
+        return json({ success: true, url: await resolveProviderUrl(provider, type, id, rc) });
       }
-      if (type === "playlist") {
-        const tracks = await getPlaylistTracks(id, CONVERT_PLAYLIST_LIMIT, deps);
-        const urls = await Promise.all(
-          tracks.map((t) =>
-            provider.resolve({
-              type: "track",
-              id: t.id,
-              name: t.name,
-              artist: t.artists[0]?.name ?? "",
-            }),
-          ),
-        );
-        return json({ success: true, urls });
-      }
-      const url = await resolveProviderUrl(provider, type, id, deps);
-      return url
-        ? json({ success: true, url })
-        : json({ success: false, error: `Failed to find info for this ${type}.` });
+      const tracks = await getPlaylistTracks(id, CONVERT_PLAYLIST_LIMIT, rc);
+      const urls = await Promise.all(
+        tracks.map((t) =>
+          provider.resolve({
+            type: "track",
+            id: t.id,
+            name: t.name,
+            artist: t.artists[0]?.name ?? "",
+          }),
+        ),
+      );
+      return json({ success: true, urls });
     }
     case "album": {
-      const album = await getAlbumSummary(id, deps);
+      const album = await getAlbumSummary(id, rc);
       if (!album) return json({ success: false, error: "Failed to find info for this album." });
       const urls = await Promise.all(
         album.tracks.map((t) =>
@@ -195,21 +180,28 @@ const convertRoute: Route<RequestContext> = route("/api/convert", async (rc) => 
       );
       return json({ success: true, urls });
     }
-    default: {
-      const exhaustive: never = type;
-      throw new Error(`unhandled type: ${String(exhaustive)}`);
+    case "track":
+    case "artist": {
+      const url = await resolveProviderUrl(provider, type, id, rc);
+      return url
+        ? json({ success: true, url })
+        : json({ success: false, error: `Failed to find info for this ${type}.` });
     }
   }
 });
 
-const mainRoutes: readonly Route<RequestContext>[] = [
-  route("/", (rc) => page(rc, "index")),
-  route("/about", (rc) => page(rc, "about")),
+const sharedRoutes: readonly Route<RequestContext>[] = [
   statsRoute,
   statsPageRoute,
   topRoute,
   regionRoute,
   convertRoute,
+];
+
+const mainRoutes: readonly Route<RequestContext>[] = [
+  route("/", (rc) => page(rc, "index")),
+  route("/about", (rc) => page(rc, "about")),
+  ...sharedRoutes,
 ];
 
 const openRoutes: readonly Route<RequestContext>[] = [
@@ -221,7 +213,7 @@ const openRoutes: readonly Route<RequestContext>[] = [
     const target = rc.providers[provider] ?? rc.providers["fixSpotify"];
     if (!target) throw new Error("fixSpotify provider missing from registry");
     if (!isProviderType(type)) throw new BadRequestError("Invalid type");
-    const url = await resolveProviderUrl(target, type, parseSpotifyId(id), catalogDeps(rc));
+    const url = await resolveProviderUrl(target, type, parseSpotifyId(id), rc);
     return url ? redirect(url) : page(rc, "error", 404);
   }),
   route("/api", (rc) => json({ version: pkg.version, providers: describeProviders(rc.providers) })),
@@ -229,10 +221,9 @@ const openRoutes: readonly Route<RequestContext>[] = [
   route("/api/info/:type/:id", async (rc, { type = "", id = "" }) => {
     if (!isProviderType(type)) throw new BadRequestError("Invalid type");
     const spotifyId = parseSpotifyId(id);
-    const deps = catalogDeps(rc);
     switch (type) {
       case "track": {
-        const t = await getTrackSummary(spotifyId, deps);
+        const t = await getTrackSummary(spotifyId, rc);
         if (!t) throw new NotFoundError(type, spotifyId);
         return json({
           name: t.name,
@@ -242,7 +233,7 @@ const openRoutes: readonly Route<RequestContext>[] = [
         });
       }
       case "album": {
-        const a = await getAlbumSummary(spotifyId, deps);
+        const a = await getAlbumSummary(spotifyId, rc);
         if (!a) throw new NotFoundError(type, spotifyId);
         return json({
           name: a.name,
@@ -257,7 +248,7 @@ const openRoutes: readonly Route<RequestContext>[] = [
         });
       }
       case "artist": {
-        const a = await getArtist(spotifyId, deps);
+        const a = await getArtist(spotifyId, rc);
         if (!a) throw new NotFoundError(type, spotifyId);
         return json({
           name: a.name,
@@ -266,17 +257,13 @@ const openRoutes: readonly Route<RequestContext>[] = [
         });
       }
       case "playlist": {
-        const p = await getPlaylist(spotifyId, deps);
+        const p = await getPlaylist(spotifyId, rc);
         if (!p) throw new NotFoundError(type, spotifyId);
         return json({
           name: p.name,
           description: p.description ?? "",
           images: (p.images ?? []).map((i) => `/api/image/${imageId(i.url)}`),
         });
-      }
-      default: {
-        const exhaustive: never = type;
-        throw new Error(`unhandled type: ${String(exhaustive)}`);
       }
     }
   }),
@@ -296,11 +283,7 @@ const openRoutes: readonly Route<RequestContext>[] = [
       },
     });
   }),
-  statsRoute,
-  statsPageRoute,
-  topRoute,
-  regionRoute,
-  convertRoute,
+  ...sharedRoutes,
 ];
 
 const linkRoutes: readonly Route<RequestContext>[] = [

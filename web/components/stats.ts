@@ -1,5 +1,6 @@
 import '../styles/stats.css'
 import placeholder from "../assets/images/placeholder.svg"
+import { escapeHtml } from '../scripts/escape.ts'
 
 interface StatsData {
   counts: {
@@ -88,10 +89,6 @@ function createAnimatedDigits(current: number, previous?: number): string {
   container += '</section>';
   return container;
 }
-
-// names come from spotify and anyone can name a playlist <script>
-const escapeHtml = (s: string | undefined) =>
-  (s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c)
 
 function createAnimatedText(rawCurrent: string | undefined, rawPrevious: string, delay: number): string {
   const current = escapeHtml(rawCurrent)
