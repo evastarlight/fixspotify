@@ -13,7 +13,6 @@ const SearchResults = z.object({
     .array(
       z.object({
         attributes: z.object({
-          popularity: z.number().default(0),
           externalLinks: z.array(z.object({ href: z.string() })).default([]),
         }),
       }),
@@ -46,8 +45,12 @@ export function createTidalClient(deps: TidalClientDeps): TidalClient {
   return {
     async search(query, kind) {
       const token = await clientCredentialsToken(deps.kv, creds, { fetch: fetchImpl });
-      const url = `${API_ORIGIN}/searchResults/${encodeURIComponent(query)}?countryCode=${COUNTRY_CODE}&include=${kind}`;
-      const res = await fetchImpl(url, {
+      const params = new URLSearchParams({
+        "filter[query]": query,
+        countryCode: COUNTRY_CODE,
+        include: kind,
+      });
+      const res = await fetchImpl(`${API_ORIGIN}/searchResults?${params}`, {
         headers: {
           authorization: `Bearer ${token}`,
           accept: "application/vnd.api+json",
@@ -56,11 +59,10 @@ export function createTidalClient(deps: TidalClientDeps): TidalClient {
       });
       if (!res.ok) throw new UpstreamError("tidal", res.status);
 
+      // results come back ranked, first one is the match
       const results = SearchResults.parse(await res.json());
-      const best = results.included
-        .filter((item) => item.attributes.externalLinks.length > 0)
-        .sort((a, b) => b.attributes.popularity - a.attributes.popularity)[0];
-      return best?.attributes.externalLinks[0]?.href;
+      return results.included.find((item) => item.attributes.externalLinks.length > 0)?.attributes
+        .externalLinks[0]?.href;
     },
   };
 }
