@@ -1,46 +1,33 @@
-import 'dotenv/config';
-import { defineConfig } from "vite";
-import { readdirSync } from "fs";
-import { resolve } from "path";
+import { readdirSync } from "node:fs";
+import { resolve } from "node:path";
 import replace from "@rollup/plugin-replace";
+import { defineConfig, loadEnv } from "vite";
 
 const pagesDir = resolve(__dirname, "client/pages");
-const pages = readdirSync(pagesDir).map(page => page.replace(".html", ""));
+const routes = Object.fromEntries(
+  readdirSync(pagesDir).map((page) => [page.replace(".html", ""), `client/pages/${page}`]),
+);
 
-const routes: Record<string, string> = {};
-
-for (const page of pages) {
-    routes[page] = `client/pages/${page}.html`;
-}
-
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  return {
     root: "client",
     build: {
-        target: "esnext",
-        outDir: "../dist/client",
-        assetsDir: "_",
-        emptyOutDir: true,
-        sourcemap: true,
-        rollupOptions: {
-            input: routes,
-            plugins: [
-
-            ]
-        }
-    },
-    server: {
-        open: true,
-        proxy: {
-            '/api': 'http://localhost:3000'
-        }
+      target: "esnext",
+      outDir: "../dist/client",
+      assetsDir: "_",
+      emptyOutDir: true,
+      sourcemap: true,
+      rollupOptions: { input: routes },
     },
     plugins: [
-        replace({
-            preventAssignment: true,
-            include: ["**/*.html"],
-            values: {
-                "CF_ANALYTICS": `{"token": "${process.env.CF_ANALYTICS_ID}"}` || "",
-            }
-        }),
-    ]
+      replace({
+        preventAssignment: true,
+        include: ["**/*.html"],
+        values: {
+          CF_ANALYTICS: JSON.stringify({ token: env.CF_ANALYTICS_ID ?? "" }),
+        },
+      }),
+    ],
+  };
 });

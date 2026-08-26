@@ -1,0 +1,11 @@
+# copy to .dev.vars, prod uses wrangler secret put
+
+SPOTIFY_CLIENT_ID=
+SPOTIFY_CLIENT_SECRET=
+
+# optional, no tidal without these
+TIDAL_CLIENT_ID=
+TIDAL_CLIENT_SECRET=
+
+# wrangler dev has one host, pick a site: main | open | link
+FORCE_SITE=open

@@ -99,7 +99,7 @@ function addTrack(options: {
 }
 
 async function fetchData(): Promise<ItemData>  {
-  const response = await fetch(`https://open.fixspotify.com/api/info/${type}/${id}`);
+  const response = await fetch(`/api/info/${type}/${id}`);
   return await response.json();
 }
 

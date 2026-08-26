@@ -6,13 +6,13 @@ export function initSocials() {
   const socials = `
     <ul class="socials">
       <li>
-        <a href="https://gart.sh/l/fixspotify" target="_blank">
+        <a href="https://github.com/evastarlight" target="_blank">
           <img src="${githubIcon}"/>
           <span>GitHub</span>
         </a>
       </li>
       <li>
-        <a href="mailto:contact@gart.sh" target="_blank">
+        <a href="mailto:hi@eva.pink" target="_blank">
         <img src="${emailIcon}"/>
         <span>Email</span>
         </a>

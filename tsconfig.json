@@ -1,28 +1,30 @@
 {
-  // gart's default tsconfig.json
   "compilerOptions": {
-    "tsBuildInfoFile": "./dist/.tsbuildinfo",
-    "incremental": true,
-    "target": "ES2022",
-    "module": "Node16",
-    "rootDir": "./src",
-    "moduleResolution": "Node16",
-    "resolveJsonModule": true,
-    "allowJs": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "./dist",
-    "removeComments": true,
-    "esModuleInterop": true,
-    "preserveSymlinks": true,
-    "forceConsistentCasingInFileNames": true,
     "strict": true,
-    "alwaysStrict": true,
-    "skipLibCheck": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+
+    "erasableSyntaxOnly": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "noEmit": true,
+    "target": "es2022",
+    "lib": ["es2023"],
+    "types": ["./worker-configuration.d.ts"],
+    "skipLibCheck": true
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "./dist/**/*", "../dist"]
+  "include": ["src/**/*", "worker-configuration.d.ts"],
+  "exclude": ["node_modules", "dist", "client"]
 }

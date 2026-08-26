@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fixspotify",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "observability": { "enabled": true },
+  // run near spotify api
+  "placement": { "mode": "smart" },
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "html_handling": "none",
+    "not_found_handling": "none",
+    // /_/ and robots.txt from assets, rest hits the worker
+    "run_worker_first": ["/*", "!/_/*", "!/robots.txt"]
+  },
+  "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }],
+  "kv_namespaces": [
+    {
+      "binding": "TOKENS",
+      // pnpm wrangler kv namespace create TOKENS
+      "id": "a6fe5b3489fb440e88415531c8b8731a"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "STATS", "class_name": "Stats" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Stats"] }],
+  "vars": {
+    "MAIN_HOST": "fixspotify.com",
+    "OPEN_HOST": "open.fixspotify.com",
+    "LINK_HOST": "fixspotify.link",
+    // 1 = all, 0.01 = 1% scaled
+    "STATS_SAMPLE_RATE": "1"
+  },
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "fixspotify.com", "custom_domain": true },
+    { "pattern": "open.fixspotify.com", "custom_domain": true },
+    { "pattern": "fixspotify.link", "custom_domain": true }
+  ]
+}
