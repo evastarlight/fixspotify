@@ -26,6 +26,10 @@
     "bindings": [{ "name": "STATS", "class_name": "Stats" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Stats"] }],
+  // embed fetches per ip per minute that still count towards stats
+  "ratelimits": [
+    { "name": "EMBED_LIMITER", "namespace_id": "1001", "simple": { "limit": 300, "period": 60 } }
+  ],
   "vars": {
     "MAIN_HOST": "fixspotify.com",
     "OPEN_HOST": "open.fixspotify.com",

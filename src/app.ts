@@ -37,6 +37,7 @@ import {
   type SpotifyClient,
 } from "./spotify";
 import { recordStat, statsSnapshot, statsTop } from "./stats";
+import { shouldCount } from "./stats/dedupe";
 import { parseTopQuery, sinceDay } from "./stats/top";
 
 interface RequestContext {
@@ -50,6 +51,7 @@ interface RequestContext {
   readonly mainOrigin: string;
   readonly openOrigin: string;
   readonly colo: string;
+  readonly ip: string;
 }
 
 type Page = "index" | "config" | "view" | "error" | "about" | "stats";
@@ -71,17 +73,28 @@ const catalogDeps = (rc: RequestContext): CatalogDeps => ({ spotify: rc.spotify,
 const embedRoute = (kind: EmbedKind): Route<RequestContext> =>
   route(`/${kind}/:id`, async (rc, { id = "" }) => {
     const spotifyId = parseSpotifyId(id);
-    const data = await loadEmbed(kind, spotifyId, catalogDeps(rc));
-    recordStat(rc.env, rc.ctx, rc.vars.STATS_SAMPLE_RATE, {
-      addedAt: Date.now(),
-      type: kind,
-      id: spotifyId,
-      artistId: data.artistId,
-      name: data.title,
-      description: data.subtitle,
-      image: data.image,
-      url: kind === "playlist" ? data.url : `${rc.openOrigin}/view?type=${kind}&id=${spotifyId}`,
-    });
+    const [data, count] = await Promise.all([
+      loadEmbed(kind, spotifyId, catalogDeps(rc)),
+      shouldCount({
+        ip: rc.ip,
+        type: kind,
+        id: spotifyId,
+        ctx: rc.ctx,
+        limiter: rc.env.EMBED_LIMITER,
+      }),
+    ]);
+    if (count) {
+      recordStat(rc.env, rc.ctx, rc.vars.STATS_SAMPLE_RATE, {
+        addedAt: Date.now(),
+        type: kind,
+        id: spotifyId,
+        artistId: data.artistId,
+        name: data.title,
+        description: data.subtitle,
+        image: data.image,
+        url: kind === "playlist" ? data.url : `${rc.openOrigin}/view?type=${kind}&id=${spotifyId}`,
+      });
+    }
     return html(renderEmbed(kind, data, rc.openOrigin));
   });
 
@@ -356,6 +369,7 @@ function buildContext(
     mainOrigin,
     openOrigin,
     colo: request.cf?.colo ?? "unknown",
+    ip: request.headers.get("cf-connecting-ip") ?? "",
   };
 }
 
