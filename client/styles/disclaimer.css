@@ -9,3 +9,21 @@
 	text-transform: uppercase;
   /* -webkit-box-decoration-break: clone; */
 }
+
+.region {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+	margin-top: 0.5rem;
+	font-size: 0.75rem;
+	color: var(--light);
+}
+
+.region[hidden] {
+	display: none;
+}
+
+.region svg {
+	width: 0.8rem;
+	height: 0.8rem;
+}

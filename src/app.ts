@@ -12,6 +12,7 @@ import {
   type Provider,
   resolveProviderUrl,
 } from "./providers";
+import { workerRegion } from "./region";
 import { BadRequestError, NotFoundError, UpstreamError } from "./shared/errors";
 import { dispatch, html, json, type Route, redirect, route } from "./shared/http";
 import {
@@ -37,6 +38,7 @@ interface RequestContext {
   readonly providers: Readonly<Record<string, Provider>>;
   readonly mainOrigin: string;
   readonly openOrigin: string;
+  readonly colo: string;
 }
 
 type Page = "index" | "config" | "view" | "error";
@@ -71,6 +73,10 @@ const statsRoute: Route<RequestContext> = route("/stats", async (rc) => {
   const since = Number(rc.url.searchParams.get("since")) || 0;
   return json(await statsSnapshot(rc.env, since));
 });
+
+const regionRoute: Route<RequestContext> = route("/api/region", async (rc) =>
+  json(await workerRegion(rc.colo)),
+);
 
 const convertRoute: Route<RequestContext> = route("/api/convert", async (rc) => {
   const q = rc.url.searchParams;
@@ -145,6 +151,7 @@ const convertRoute: Route<RequestContext> = route("/api/convert", async (rc) => 
 const mainRoutes: readonly Route<RequestContext>[] = [
   route("/", (rc) => page(rc, "index")),
   statsRoute,
+  regionRoute,
   convertRoute,
 ];
 
@@ -231,6 +238,7 @@ const openRoutes: readonly Route<RequestContext>[] = [
     });
   }),
   statsRoute,
+  regionRoute,
   convertRoute,
 ];
 
@@ -262,7 +270,7 @@ function stripIntlPrefix(url: URL): URL {
 }
 
 function buildContext(
-  request: Request,
+  request: Request<unknown, IncomingRequestCfProperties>,
   env: Env,
   ctx: ExecutionContext,
   vars: Vars,
@@ -298,6 +306,7 @@ function buildContext(
     providers: createProviders({ openOrigin, tidal }),
     mainOrigin,
     openOrigin,
+    colo: request.cf?.colo ?? "unknown",
   };
 }
 
@@ -324,7 +333,7 @@ async function errorResponse(rc: RequestContext, err: unknown): Promise<Response
 }
 
 export async function handleRequest(
-  request: Request,
+  request: Request<unknown, IncomingRequestCfProperties>,
   env: Env,
   ctx: ExecutionContext,
 ): Promise<Response> {

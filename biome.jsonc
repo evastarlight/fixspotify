@@ -8,7 +8,8 @@
       "vite.config.ts",
       "vitest.config.ts",
       "!worker-configuration.d.ts",
-      "!**/*.html"
+      "!**/*.html",
+      "!src/colos.json"
     ]
   },
   "formatter": { "indentStyle": "space", "lineWidth": 100 },
