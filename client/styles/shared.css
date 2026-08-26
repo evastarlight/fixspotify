@@ -24,6 +24,13 @@
 	background: var(--linkBlue);
 }
 
+/* the overscroll bounce paints the html background, not body's */
+html {
+	background-color: var(--dark);
+	color-scheme: dark;
+	overscroll-behavior: none;
+}
+
 body {
 	min-height: 100vh;
 	height: 100%;
