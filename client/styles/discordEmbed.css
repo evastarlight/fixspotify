@@ -1,5 +1,6 @@
 .discord-embed {
 	width: fit-content;
+	max-width: 100%;
 	display: flex;
 	flex-direction: column;
 	gap: 1rem;
@@ -10,108 +11,118 @@
 	text-transform: uppercase;
 }
 
-.embed {
-	width: 100%;
-	padding: 1rem;
+/* colors and sizes below are discord's dark theme */
+.discord-chat {
+	pointer-events: none;
+	user-select: none;
+	width: fit-content;
+	max-width: 100%;
+	padding: 0.5rem 0;
 	border: 1px solid var(--softGrey);
 	border-radius: 0.5rem;
 	background-color: var(--dark);
+	font-family: "gg sans", "Inter", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+	color: #dbdee1;
+}
+
+.discord-chat * {
+	font-family: inherit;
+}
+
+.message {
 	display: flex;
-	flex-direction: row;
-	gap: 1rem;
-	font-size: 0.875rem;
+	gap: 0.75rem;
+	padding: 0.125rem 0.75rem;
 }
 
-.profile-picture {
-	width: 32px;
-	height: 32px;
-	aspect-ratio: 1/1;
-	border-radius: 100%;
-	background-color: var(--accentColor);
+.message .avatar {
+	flex: none;
+	width: 40px;
+	height: 40px;
+	margin-top: 0.125rem;
+	border-radius: 50%;
+	object-fit: cover;
 }
 
-.embed > div {
-	width: 32px;
-	height: 32px;
-	aspect-ratio: 1/1;
-	border-radius: 100%;
-	background-color: var(--accentColor);
+.message .body {
+	flex: 1;
+	min-width: 0;
 }
 
-.embed .content {
-	width: 100%;
+.message header {
 	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
+	align-items: baseline;
+	gap: 0.25rem;
+	line-height: 1.375rem;
 }
 
-.embed .content * {
-	font-family: "Inter", sans-serif;
-}
-
-.embed .content .infos {
-	width: 100%;
-	display: flex;
-	flex-direction: row;
-	align-items: center;
-	gap: 0.5rem;
-}
-
-.embed .content .infos .username {
+.message .username {
+	font-size: 1rem;
+	font-weight: 500;
 	color: var(--accentColor);
 }
 
-.embed .content .infos > span:last-child {
-	color: var(--softGrey);
-	font-size: 0.875rem;
+.message time {
+	margin-left: 0.25rem;
+	font-size: 0.75rem;
+	color: #949ba4;
 }
 
-.embed .content p {
-	color: var(--linkBlue);
-	font-size: 0.875rem;
-	font-weight: 300;
-	line-break: anywhere;
+.message .text {
+	font-size: 1rem;
+	line-height: 1.375rem;
+	overflow-wrap: anywhere;
 }
 
-.embed .content .fixspotify-embed {
+.message .link {
+	color: #00a8fc;
+}
+
+.rich-embed {
 	width: fit-content;
-	padding: 1rem;
-	border-left: 3px solid var(--accentColor);
-	border-radius: 0.5rem;
-	background-color: var(--discordGrey);
-	display: flex;
-	flex-direction: row;
-	gap: 2rem;
+	max-width: 432px;
+	margin-top: 0.125rem;
+	padding: 0.5rem 1rem 1rem 0.75rem;
+	border-left: 4px solid var(--accentColor);
+	border-radius: 4px;
+	background-color: #2b2d31;
+}
+
+.rich-embed .grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	column-gap: 1rem;
+}
+
+.rich-embed .provider,
+.rich-embed .title,
+.rich-embed .description {
+	grid-column: 1;
+	margin-top: 0.5rem;
+}
+
+.rich-embed .provider {
+	font-size: 0.75rem;
+}
+
+.rich-embed .title {
+	font-size: 1rem;
+	font-weight: 600;
+	color: #00a8fc;
+}
+
+.rich-embed .description {
 	font-size: 0.875rem;
-	font-weight: 300;
+	line-height: 1.125rem;
+	white-space: pre-line;
 }
 
-.embed .content .fixspotify-embed .infos {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: 1rem;
-}
-
-.embed .content .fixspotify-embed .infos .track-name {
-	color: var(--linkBlue);
-	font-weight: 500;
-}
-
-.embed .content .fixspotify-embed .infos .details {
-	display: flex;
-	flex-direction: column;
-}
-
-.embed .content .fixspotify-embed img {
-	width: 96px;
-	height: 96px;
-	aspect-ratio: 1/1;
-	border-radius: 0.25rem;
-}
-
-@media (max-width: 768px) {
-	.embed .content .fixspotify-embed {
-		font-size: 0.75rem;
-	}
+.rich-embed .thumbnail {
+	grid-column: 2;
+	grid-row: 1 / 4;
+	width: 80px;
+	height: 80px;
+	margin-top: 0.5rem;
+	border-radius: 4px;
+	object-fit: cover;
 }
