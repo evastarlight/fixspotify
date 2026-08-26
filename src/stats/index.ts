@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { z } from "zod";
+import { dayOf, type TopEntry, type TopType } from "./top";
 
 export const STAT_TYPES = ["track", "album", "artist", "playlist"] as const;
 export type StatType = (typeof STAT_TYPES)[number];
@@ -14,6 +15,8 @@ const CountsSchema = z.object({
 const RecentRequestSchema = z.object({
   addedAt: z.number(),
   type: z.enum(STAT_TYPES),
+  id: z.string().default(""),
+  artistId: z.string().default(""),
   name: z.string(),
   description: z.string(),
   image: z.string(),
@@ -30,24 +33,94 @@ export interface StatsSnapshot {
   readonly lastRequests: readonly RecentRequest[];
 }
 
+interface PendingHit {
+  readonly day: number;
+  readonly type: StatType;
+  readonly id: string;
+  readonly name: string;
+  readonly subtitle: string;
+  readonly artist: string;
+  readonly artistId: string;
+  readonly image: string;
+  weight: number;
+}
+
+interface TopRow extends Record<string, SqlStorageValue> {
+  id: string;
+  name: string;
+  subtitle: string;
+  image: string;
+  count: number;
+}
+
 const FLUSH_MS = 10_000;
 const RECENT_LIMIT = 3;
 const STORAGE_KEY = "state";
 const GLOBAL_NAME = "global";
+
+const SCHEMA = `
+  CREATE TABLE IF NOT EXISTS hits (
+    day INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    subtitle TEXT NOT NULL,
+    artist TEXT NOT NULL,
+    artist_id TEXT NOT NULL,
+    image TEXT NOT NULL,
+    count REAL NOT NULL,
+    PRIMARY KEY (day, type, id)
+  );
+  CREATE INDEX IF NOT EXISTS hits_type_day ON hits (type, day);
+  CREATE INDEX IF NOT EXISTS hits_artist_day ON hits (artist_id, day);
+`;
+
+const UPSERT = `
+  INSERT INTO hits (day, type, id, name, subtitle, artist, artist_id, image, count)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT (day, type, id) DO UPDATE SET
+    count = count + excluded.count,
+    name = excluded.name,
+    subtitle = excluded.subtitle,
+    artist = excluded.artist,
+    artist_id = excluded.artist_id,
+    image = excluded.image
+`;
+
+const TOP_BY_ID = `
+  SELECT id, name, subtitle, image, SUM(count) AS count
+  FROM hits WHERE type = ? AND day >= ?
+  GROUP BY id ORDER BY count DESC LIMIT ?
+`;
+
+// artists come from who's on the tracks and albums, artist embeds are rare
+const TOP_ARTISTS = `
+  SELECT artist_id AS id, artist AS name, '' AS subtitle, image, SUM(count) AS count
+  FROM hits WHERE artist_id != '' AND day >= ?
+  GROUP BY artist_id ORDER BY count DESC LIMIT ?
+`;
 
 const emptyStored = (): Stored => ({
   counts: { total: 0, track: 0, album: 0, artist: 0, playlist: 0 },
   recent: [],
 });
 
+const primaryArtist = (entry: RecentRequest): string => {
+  if (entry.type === "artist") return entry.name;
+  if (entry.type === "playlist") return "";
+  return entry.description.split(", ")[0] ?? "";
+};
+
 export class Stats extends DurableObject<Env> {
   private stored: Stored = emptyStored();
   private dirty = false;
+  private pending = new Map<string, PendingHit>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     // blocks rpc until loaded
     void ctx.blockConcurrencyWhile(async () => {
+      ctx.storage.sql.exec(SCHEMA);
       const parsed = StoredSchema.safeParse(await ctx.storage.get(STORAGE_KEY));
       if (parsed.success) this.stored = parsed.data;
     });
@@ -60,6 +133,27 @@ export class Stats extends DurableObject<Env> {
       this.stored.recent = [entry, ...this.stored.recent].slice(0, RECENT_LIMIT);
     }
     this.dirty = true;
+
+    if (entry.id !== "") {
+      const day = dayOf(entry.addedAt);
+      const key = `${day}|${entry.type}|${entry.id}`;
+      const hit = this.pending.get(key);
+      if (hit) hit.weight += weight;
+      else {
+        this.pending.set(key, {
+          day,
+          type: entry.type,
+          id: entry.id,
+          name: entry.name,
+          subtitle: entry.description,
+          artist: primaryArtist(entry),
+          artistId: entry.artistId,
+          image: entry.image,
+          weight,
+        });
+      }
+    }
+
     if ((await this.ctx.storage.getAlarm()) === null) {
       await this.ctx.storage.setAlarm(Date.now() + FLUSH_MS);
     }
@@ -79,10 +173,48 @@ export class Stats extends DurableObject<Env> {
     };
   }
 
+  async top(type: TopType, since: number, limit: number): Promise<TopEntry[]> {
+    const rows =
+      type === "artist"
+        ? this.ctx.storage.sql.exec<TopRow>(TOP_ARTISTS, since, limit).toArray()
+        : this.ctx.storage.sql.exec<TopRow>(TOP_BY_ID, type, since, limit).toArray();
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      subtitle: r.subtitle,
+      image: r.image,
+      count: Math.round(r.count),
+    }));
+  }
+
   override async alarm(): Promise<void> {
-    if (!this.dirty) return;
-    this.dirty = false;
-    await this.ctx.storage.put(STORAGE_KEY, this.stored);
+    if (this.dirty) {
+      this.dirty = false;
+      await this.ctx.storage.put(STORAGE_KEY, this.stored);
+    }
+    if (this.pending.size === 0) return;
+    const hits = [...this.pending.values()];
+    this.ctx.storage.transactionSync(() => {
+      for (const h of hits) {
+        this.ctx.storage.sql.exec(
+          UPSERT,
+          h.day,
+          h.type,
+          h.id,
+          h.name,
+          h.subtitle,
+          h.artist,
+          h.artistId,
+          h.image,
+          h.weight,
+        );
+      }
+    });
+    this.pending.clear();
+    // anything that landed mid flush gets the next one
+    if (this.dirty && (await this.ctx.storage.getAlarm()) === null) {
+      await this.ctx.storage.setAlarm(Date.now() + FLUSH_MS);
+    }
   }
 }
 
@@ -108,4 +240,13 @@ export function recordStat(
 
 export function statsSnapshot(env: Env, since: number): Promise<StatsSnapshot> {
   return globalStats(env).snapshot(since);
+}
+
+export function statsTop(
+  env: Env,
+  type: TopType,
+  since: number,
+  limit: number,
+): Promise<TopEntry[]> {
+  return globalStats(env).top(type, since, limit);
 }

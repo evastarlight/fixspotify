@@ -13,6 +13,7 @@ import {
   resolveProviderUrl,
 } from "./providers";
 import { workerRegion } from "./region";
+import { cached } from "./shared/cache";
 import { BadRequestError, NotFoundError, UpstreamError } from "./shared/errors";
 import { dispatch, html, json, type Route, redirect, route } from "./shared/http";
 import {
@@ -27,7 +28,8 @@ import {
   parseSpotifyId,
   type SpotifyClient,
 } from "./spotify";
-import { recordStat, statsSnapshot } from "./stats";
+import { recordStat, statsSnapshot, statsTop } from "./stats";
+import { parseTopQuery, sinceDay } from "./stats/top";
 
 interface RequestContext {
   readonly url: URL;
@@ -41,7 +43,8 @@ interface RequestContext {
   readonly colo: string;
 }
 
-type Page = "index" | "config" | "view" | "error" | "about";
+type Page = "index" | "config" | "view" | "error" | "about" | "stats";
+const TOP_CACHE_SECONDS = 60;
 const SPOTIFY_IMAGE_ID = /^[a-f0-9]{40}$/i;
 const LINK_TOKEN = /^[A-Za-z0-9]{1,32}$/;
 const CONVERT_PLAYLIST_LIMIT = 50;
@@ -61,6 +64,8 @@ const embedRoute = (kind: EmbedKind): Route<RequestContext> =>
     recordStat(rc.env, rc.ctx, rc.vars.STATS_SAMPLE_RATE, {
       addedAt: Date.now(),
       type: kind,
+      id: spotifyId,
+      artistId: data.artistId,
       name: data.title,
       description: data.subtitle,
       image: data.image,
@@ -69,9 +74,27 @@ const embedRoute = (kind: EmbedKind): Route<RequestContext> =>
     return html(renderEmbed(kind, data, rc.openOrigin));
   });
 
-const statsRoute: Route<RequestContext> = route("/stats", async (rc) => {
+const statsRoute: Route<RequestContext> = route("/api/stats", async (rc) => {
   const since = Number(rc.url.searchParams.get("since")) || 0;
   return json(await statsSnapshot(rc.env, since));
+});
+
+const statsPageRoute: Route<RequestContext> = route("/stats", (rc) => page(rc, "stats"));
+
+const topRoute: Route<RequestContext> = route("/api/stats/top", async (rc) => {
+  const q = parseTopQuery(rc.url.searchParams);
+  if (!q) throw new BadRequestError("Invalid type or range");
+  const entries = await cached({
+    key: `top/${q.type}/${q.range}/${q.limit}`,
+    ttlSeconds: TOP_CACHE_SECONDS,
+    ctx: rc.ctx,
+    // dont cache an empty chart, it fills in as hits land
+    load: async () => {
+      const entries = await statsTop(rc.env, q.type, sinceDay(q.range, Date.now()), q.limit);
+      return entries.length > 0 ? entries : undefined;
+    },
+  });
+  return json(entries ?? []);
 });
 
 const regionRoute: Route<RequestContext> = route("/api/region", async (rc) =>
@@ -152,6 +175,8 @@ const mainRoutes: readonly Route<RequestContext>[] = [
   route("/", (rc) => page(rc, "index")),
   route("/about", (rc) => page(rc, "about")),
   statsRoute,
+  statsPageRoute,
+  topRoute,
   regionRoute,
   convertRoute,
 ];
@@ -239,6 +264,8 @@ const openRoutes: readonly Route<RequestContext>[] = [
     });
   }),
   statsRoute,
+  statsPageRoute,
+  topRoute,
   regionRoute,
   convertRoute,
 ];

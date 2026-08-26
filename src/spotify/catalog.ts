@@ -7,6 +7,7 @@ export interface TrackSummary {
   readonly name: string;
   readonly artists: string;
   readonly primaryArtist: string;
+  readonly primaryArtistId: string;
   readonly duration: string;
   readonly album: string;
   readonly albumArtId: string;
@@ -30,6 +31,7 @@ export interface AlbumSummary {
   readonly name: string;
   readonly artists: string;
   readonly primaryArtist: string;
+  readonly primaryArtistId: string;
   readonly releaseDate: string;
   readonly totalTracks: number;
   readonly genres: string;
@@ -50,6 +52,7 @@ export function summarizeTrack(t: Track): TrackSummary {
     name: t.name,
     artists: formatArtists(t.artists),
     primaryArtist: t.artists[0]?.name ?? "",
+    primaryArtistId: t.artists[0]?.id ?? "",
     duration: formatDuration(t.duration_ms),
     album: t.album.name,
     albumArtId: images[0] ?? "",
@@ -67,6 +70,7 @@ export function summarizeAlbum(a: Album): AlbumSummary {
     name: a.name,
     artists: formatArtists(a.artists),
     primaryArtist: a.artists[0]?.name ?? "",
+    primaryArtistId: a.artists[0]?.id ?? "",
     releaseDate: formatReleaseDate(a.release_date, a.release_date_precision),
     totalTracks: a.total_tracks,
     genres: a.genres.join(", "),
@@ -93,7 +97,8 @@ const PLAYLIST_TTL_SECONDS = 300;
 
 export function getTrackSummary(id: string, deps: CatalogDeps): Promise<TrackSummary | undefined> {
   return cached({
-    key: `track/${id}`,
+    // v2: summaries grew primaryArtistId
+    key: `v2/track/${id}`,
     ttlSeconds: CATALOG_TTL_SECONDS,
     ctx: deps.ctx,
     load: async () => {
@@ -105,7 +110,7 @@ export function getTrackSummary(id: string, deps: CatalogDeps): Promise<TrackSum
 
 export function getAlbumSummary(id: string, deps: CatalogDeps): Promise<AlbumSummary | undefined> {
   return cached({
-    key: `album/${id}`,
+    key: `v2/album/${id}`,
     ttlSeconds: CATALOG_TTL_SECONDS,
     ctx: deps.ctx,
     load: async () => {

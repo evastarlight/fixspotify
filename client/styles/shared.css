@@ -48,9 +48,9 @@ h1, h2, h3, h4, h5, h6 {
 	font-weight: 400;
 }
 
-a:focus, 
-input:focus, 
-button:focus {
+a:focus-visible,
+input:focus-visible,
+button:focus-visible {
 	outline: 1px solid var(--linkBlue);
 }
 

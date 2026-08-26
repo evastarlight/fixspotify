@@ -8,7 +8,8 @@ const TIMEOUT_MS = 8_000;
 
 const ExternalUrls = z.object({ spotify: z.string() });
 const Image = z.object({ url: z.string() });
-const ArtistRef = z.object({ name: z.string() });
+// local files have artists with no id
+const ArtistRef = z.object({ id: z.string().nullable(), name: z.string() });
 const ReleaseDatePrecision = z.enum(["year", "month", "day"]);
 
 export const TrackSchema = z.object({

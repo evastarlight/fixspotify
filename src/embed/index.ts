@@ -34,6 +34,7 @@ export interface EmbedData {
   readonly id: string;
   readonly title: string;
   readonly subtitle: string;
+  readonly artistId: string;
   readonly image: string;
   readonly url: string;
   readonly description: string;
@@ -49,6 +50,7 @@ export function trackEmbed(t: TrackSummary): EmbedData {
     id: t.id,
     title: t.name,
     subtitle: t.artists,
+    artistId: t.primaryArtistId,
     image: scdnImage(t.albumArtId),
     url: t.url,
     description: [
@@ -67,6 +69,7 @@ export function albumEmbed(a: AlbumSummary): EmbedData {
     id: a.id,
     title: a.name,
     subtitle: a.artists,
+    artistId: a.primaryArtistId,
     image: a.imageUrl,
     url: a.url,
     description: [
@@ -90,6 +93,7 @@ export function playlistEmbed(p: Playlist, tracks: readonly PlaylistTrack[]): Em
     id: p.id,
     title: p.name,
     subtitle: owner,
+    artistId: "",
     image: p.images?.[0]?.url ?? "",
     url: p.external_urls.spotify,
     description: [
@@ -113,6 +117,7 @@ export function artistEmbed(a: Artist): EmbedData {
     id: a.id,
     title: a.name,
     subtitle: genres,
+    artistId: a.id,
     image: a.images[0]?.url ?? "",
     url: a.external_urls.spotify,
     description: [
