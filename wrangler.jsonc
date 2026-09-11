@@ -3,7 +3,10 @@
   "name": "fixspotify",
   "main": "worker/index.ts",
   "compatibility_date": "2026-08-01",
-  "observability": { "enabled": true },
+  "observability": {
+    "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": true, "persist": true },
+    "traces": { "enabled": true, "head_sampling_rate": 1, "persist": true }
+  },
   // run near spotify api
   "placement": { "mode": "smart" },
   "assets": {
