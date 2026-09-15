@@ -12,6 +12,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   return {
     root: "web",
+    // inline postcss config stops vite walking up past the repo for one
+    css: { postcss: {} },
     build: {
       target: "esnext",
       outDir: "../dist/web",
@@ -25,7 +27,9 @@ export default defineConfig(({ mode }) => {
         preventAssignment: true,
         include: ["**/*.html"],
         values: {
-          CF_ANALYTICS: JSON.stringify({ token: env.CF_ANALYTICS_ID ?? "" }),
+          PLAUSIBLE_SCRIPT: env.PUB_PLAUSIBLE_URL
+            ? `<script defer data-domain="${env.PUB_HOSTNAME ?? "fixspotify.com"}" src="${env.PUB_PLAUSIBLE_URL}/js/script.js"></script>`
+            : "",
         },
       }),
     ],
