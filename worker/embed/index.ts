@@ -11,6 +11,7 @@ import {
 } from "../spotify/catalog";
 import type { Artist, Playlist, PlaylistTrack } from "../spotify/client";
 import { formatArtists, formatCount, formatDuration } from "../spotify/format";
+import { renderDiscordComponentEmbed } from "./discord";
 import { renderTemplate } from "./render";
 import albumTemplate from "./templates/album.html";
 import artistTemplate from "./templates/artist.html";
@@ -22,7 +23,7 @@ import trackTemplate from "./templates/track.html";
 export const EMBED_KINDS = ["track", "album", "artist", "playlist"] as const;
 export type EmbedKind = (typeof EMBED_KINDS)[number];
 
-export interface EmbedData {
+interface EmbedBaseData {
   readonly id: string;
   readonly title: string;
   readonly subtitle: string;
@@ -33,13 +34,44 @@ export interface EmbedData {
   readonly description: string;
 }
 
+interface TrackEmbedData extends EmbedBaseData {
+  readonly kind: "track";
+  readonly album: string;
+  readonly albumId: string;
+  readonly albumType: string;
+  readonly duration: string;
+  readonly trackNumber: number;
+  readonly totalTracks: number;
+  readonly releaseDate: string;
+}
+
+interface AlbumEmbedData extends EmbedBaseData {
+  readonly kind: "album";
+  readonly releaseDate: string;
+  readonly totalTracks: number;
+}
+
+interface ArtistEmbedData extends EmbedBaseData {
+  readonly kind: "artist";
+  readonly followers: string;
+}
+
+interface PlaylistEmbedData extends EmbedBaseData {
+  readonly kind: "playlist";
+  readonly summary: string;
+  readonly totalTracks: number;
+}
+
+export type EmbedData = TrackEmbedData | AlbumEmbedData | ArtistEmbedData | PlaylistEmbedData;
+
 const ALBUM_TRACK_PREVIEW = 10;
 const PLAYLIST_TRACK_PREVIEW = 5;
 
-const scdnImage = (id: string): string => `https://i.scdn.co/image/${id}`;
+const scdnImage = (id: string): string => (id ? `https://i.scdn.co/image/${id}` : "");
 
-export function trackEmbed(t: TrackSummary): EmbedData {
+export function trackEmbed(t: TrackSummary): TrackEmbedData {
   return {
+    kind: "track",
     id: t.id,
     title: t.name,
     subtitle: t.artists,
@@ -47,19 +79,27 @@ export function trackEmbed(t: TrackSummary): EmbedData {
     artistId: t.primaryArtistId,
     image: scdnImage(t.albumArtId),
     url: t.url,
+    album: t.album,
+    albumId: t.albumId,
+    albumType: t.albumType,
+    duration: t.duration,
+    trackNumber: t.trackNumber,
+    totalTracks: t.totalTracks,
+    releaseDate: t.releaseDate,
     description: [
       `By ${t.artists} • ${t.duration}`,
-      t.totalTracks === 1
-        ? `On ${t.album} (Single)`
-        : `Track ${t.trackNumber} of ${t.totalTracks} on ${t.album}`,
+      t.albumType === "single" ? "" : `Track ${t.trackNumber} of ${t.totalTracks} on ${t.album}`,
       `Released ${t.releaseDate}`,
-    ].join("\n"),
+    ]
+      .filter(Boolean)
+      .join("\n"),
   };
 }
 
-export function albumEmbed(a: AlbumSummary): EmbedData {
-  const hidden = a.tracks.length - ALBUM_TRACK_PREVIEW;
+export function albumEmbed(a: AlbumSummary): AlbumEmbedData {
+  const hidden = Math.max(0, a.totalTracks - ALBUM_TRACK_PREVIEW);
   return {
+    kind: "album",
     id: a.id,
     title: a.name,
     subtitle: a.artists,
@@ -67,6 +107,8 @@ export function albumEmbed(a: AlbumSummary): EmbedData {
     artistId: a.primaryArtistId,
     image: a.imageUrl,
     url: a.url,
+    releaseDate: a.releaseDate,
+    totalTracks: a.totalTracks,
     description: [
       `By ${a.artists}`,
       `Released ${a.releaseDate}`,
@@ -81,10 +123,11 @@ export function albumEmbed(a: AlbumSummary): EmbedData {
   };
 }
 
-export function playlistEmbed(p: Playlist, tracks: readonly PlaylistTrack[]): EmbedData {
+export function playlistEmbed(p: Playlist, tracks: readonly PlaylistTrack[]): PlaylistEmbedData {
   const owner = p.owner.display_name ?? "";
-  const hidden = p.tracks.total - PLAYLIST_TRACK_PREVIEW;
+  const hidden = Math.max(0, p.tracks.total - PLAYLIST_TRACK_PREVIEW);
   return {
+    kind: "playlist",
     id: p.id,
     title: p.name,
     subtitle: owner,
@@ -92,6 +135,8 @@ export function playlistEmbed(p: Playlist, tracks: readonly PlaylistTrack[]): Em
     artistId: "",
     image: p.images?.[0]?.url ?? "",
     url: p.external_urls.spotify,
+    summary: p.description ?? "",
+    totalTracks: p.tracks.total,
     description: [
       p.description ?? "",
       `By ${owner}`,
@@ -107,9 +152,10 @@ export function playlistEmbed(p: Playlist, tracks: readonly PlaylistTrack[]): Em
   };
 }
 
-export function artistEmbed(a: Artist): EmbedData {
+export function artistEmbed(a: Artist): ArtistEmbedData {
   const genres = a.genres.join(", ");
   return {
+    kind: "artist",
     id: a.id,
     title: a.name,
     subtitle: genres,
@@ -117,6 +163,7 @@ export function artistEmbed(a: Artist): EmbedData {
     artistId: a.id,
     image: a.images[0]?.url ?? "",
     url: a.external_urls.spotify,
+    followers: formatCount(a.followers.total),
     description: [
       genres,
       `${formatCount(a.followers.total)} followers`,
@@ -164,11 +211,12 @@ const TEMPLATES: Readonly<Record<EmbedKind, string>> = {
   playlist: playlistTemplate,
 };
 
-export function renderEmbed(kind: EmbedKind, data: EmbedData, openOrigin: string): string {
-  return renderTemplate(TEMPLATES[kind], {
+export function renderEmbed(data: EmbedData, openOrigin: string): string {
+  return renderTemplate(TEMPLATES[data.kind], {
     partials: { sharedHead, playlistHead },
+    rawData: { discordEmbed: renderDiscordComponentEmbed(data, openOrigin) },
     data: {
-      name: kind,
+      name: data.kind,
       id: data.id,
       title: data.title,
       artist: data.subtitle,

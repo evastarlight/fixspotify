@@ -59,6 +59,10 @@ const SPOTIFY_IMAGE_ID = /^[a-f0-9]{40}$/i;
 const LINK_TOKEN = /^[A-Za-z0-9]{1,32}$/;
 const CONVERT_PLAYLIST_LIMIT = 50;
 const IMAGE_CACHE_SECONDS = 86_400;
+const SPOTIFY_IMAGE_HOSTNAME = /(?:^|\.)(?:scdn\.co|spotifycdn\.com)$/i;
+const ARTWORK_SIZE = 320;
+const ARTWORK_COVER_SIZE = 250;
+const ARTWORK_COVER_OFFSET = (ARTWORK_SIZE - ARTWORK_COVER_SIZE) / 2;
 
 async function page(rc: RequestContext, name: Page, status = 200): Promise<Response> {
   const asset = await rc.env.ASSETS.fetch(new URL(`/pages/${name}.html`, rc.url.origin));
@@ -91,7 +95,7 @@ const embedRoute = (kind: EmbedKind): Route<RequestContext> =>
         url: kind === "playlist" ? data.url : `${rc.openOrigin}/view?type=${kind}&id=${spotifyId}`,
       });
     }
-    return html(renderEmbed(kind, data, rc.openOrigin));
+    return html(renderEmbed(data, rc.openOrigin));
   });
 
 const statsRoute: Route<RequestContext> = route("/api/stats", async (rc) =>
@@ -282,6 +286,69 @@ const openRoutes: readonly Route<RequestContext>[] = [
         "cache-control": `public, max-age=${IMAGE_CACHE_SECONDS}`,
       },
     });
+  }),
+  route("/api/artwork", async (rc) => {
+    const raw = rc.url.searchParams.get("src") ?? "";
+    let source: URL;
+    try {
+      source = new URL(raw);
+    } catch {
+      throw new NotFoundError("image", raw);
+    }
+    if (
+      source.protocol !== "https:" ||
+      source.username ||
+      source.password ||
+      source.port ||
+      !SPOTIFY_IMAGE_HOSTNAME.test(source.hostname)
+    ) {
+      throw new NotFoundError("image", raw);
+    }
+
+    const cachedArtwork = await caches.default.match(rc.url.href);
+    if (cachedArtwork) return cachedArtwork;
+
+    const upstream = await fetch(source.href, {
+      cf: { cacheEverything: true, cacheTtl: IMAGE_CACHE_SECONDS },
+    });
+    const contentType = upstream.headers.get("content-type") ?? "";
+    if (!upstream.ok || !contentType.startsWith("image/")) {
+      throw new NotFoundError("image", raw);
+    }
+
+    const headers = { "cache-control": `public, max-age=${IMAGE_CACHE_SECONDS}` };
+    const fallback = () =>
+      new Response(upstream.clone().body, { headers: { ...headers, "content-type": contentType } });
+    const backgroundBody = upstream.clone().body;
+    const coverBody = upstream.clone().body;
+    if (!backgroundBody || !coverBody) return fallback();
+
+    try {
+      const background = rc.env.IMAGES.input(backgroundBody).transform({
+        width: ARTWORK_SIZE,
+        height: ARTWORK_SIZE,
+        fit: "cover",
+        gravity: "center",
+        blur: 28,
+        brightness: 0.58,
+      });
+      const cover = rc.env.IMAGES.input(coverBody).transform({
+        width: ARTWORK_COVER_SIZE,
+        height: ARTWORK_COVER_SIZE,
+        fit: "contain",
+      });
+      const artwork = (
+        await background
+          .draw(cover, { left: ARTWORK_COVER_OFFSET, top: ARTWORK_COVER_OFFSET })
+          .output({ format: "image/webp", quality: 88, anim: false })
+      ).response({ headers });
+      if (!artwork.ok) return fallback();
+      rc.ctx.waitUntil(caches.default.put(rc.url.href, artwork.clone()));
+      return artwork;
+    } catch (err) {
+      console.error("artwork transform failed", { source: source.hostname, err });
+      return fallback();
+    }
   }),
   ...sharedRoutes,
 ];

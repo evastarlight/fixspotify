@@ -10,6 +10,8 @@ export interface TrackSummary {
   readonly primaryArtistId: string;
   readonly duration: string;
   readonly album: string;
+  readonly albumId: string;
+  readonly albumType: string;
   readonly albumArtId: string;
   readonly totalTracks: number;
   readonly trackNumber: number;
@@ -54,6 +56,8 @@ export function summarizeTrack(t: Track): TrackSummary {
     primaryArtistId: t.artists[0]?.id ?? "",
     duration: formatDuration(t.duration_ms),
     album: t.album.name,
+    albumId: t.album.id,
+    albumType: t.album.album_type,
     albumArtId: cover ? imageId(cover.url) : "",
     totalTracks: t.album.total_tracks,
     trackNumber: t.track_number,
@@ -100,9 +104,8 @@ const catalogCached = <T>(
   load: () => Promise<T | undefined>,
 ): Promise<T | undefined> => cached({ key, ttlSeconds, ctx: deps.ctx, load });
 
-// v2: summaries grew primaryArtistId
 export const getTrackSummary = (id: string, deps: CatalogDeps): Promise<TrackSummary | undefined> =>
-  catalogCached(`v2/track/${id}`, CATALOG_TTL_SECONDS, deps, async () => {
+  catalogCached(`v5/track/${id}`, CATALOG_TTL_SECONDS, deps, async () => {
     const track = await deps.spotify.track(id);
     return track && summarizeTrack(track);
   });

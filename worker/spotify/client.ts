@@ -25,6 +25,8 @@ export const TrackSchema = z.object({
   duration_ms: z.number(),
   track_number: z.number(),
   album: z.object({
+    id: z.string(),
+    album_type: z.string(),
     name: z.string(),
     images: z.array(Image),
     release_date: z.string(),
@@ -75,8 +77,6 @@ export const PlaylistSchema = z.object({
   tracks: z.object({ total: z.number() }),
   external_urls: ExternalUrls,
 });
-
-
 
 const PlaylistTrack = z.object({
   type: z.literal("track"),

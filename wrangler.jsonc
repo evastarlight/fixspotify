@@ -17,6 +17,7 @@
     // /_/ and robots.txt from assets, rest hits the worker
     "run_worker_first": ["/*", "!/_/*", "!/robots.txt"]
   },
+  "images": { "binding": "IMAGES" },
   "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }],
   "kv_namespaces": [
     {

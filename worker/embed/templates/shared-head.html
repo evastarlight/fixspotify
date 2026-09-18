@@ -7,7 +7,9 @@
 
 <meta name="theme-color" content="#1DB954" />
 <meta property="og:site_name" content="FixSpotify" />
+<meta property="og:url" content="{{openOrigin}}/{{name}}/{{id}}" />
 <meta property="twitter:site" content="FixSpotify" />
+<meta name="twitter:card" content="summary_large_image" />
 
 <script>
 	location.href = `{{openOrigin}}/redirect/${localStorage.getItem("provider") || "fixSpotify"}/{{name}}/{{id}}`;

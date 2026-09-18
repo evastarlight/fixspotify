@@ -12,6 +12,7 @@ export function escapeHtml(value: string): string {
 
 export interface RenderOptions {
   readonly partials?: Readonly<Record<string, string>> | undefined;
+  readonly rawData?: Readonly<Record<string, string>> | undefined;
   readonly data: Readonly<Record<string, string>>;
 }
 
@@ -21,6 +22,8 @@ export function renderTemplate(template: string, opts: RenderOptions): string {
     out = out.replaceAll(`{{${key}}}`, value);
   }
   return out.replace(/\{\{(\w+)\}\}/g, (placeholder, key: string) => {
+    const rawValue = opts.rawData?.[key];
+    if (rawValue !== undefined) return rawValue;
     const value = opts.data[key];
     return value === undefined ? placeholder : escapeHtml(value);
   });
