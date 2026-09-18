@@ -13,16 +13,23 @@
 
 /* colors and sizes below are discord's dark theme */
 .discord-chat {
+	--discord-surface: #242429;
+	--discord-control: #323237;
+	--discord-divider: #3b3b41;
+	--discord-link: #6094e8;
+	--discord-accent: #58b760;
+	--discord-text: #fbfbfb;
+	--discord-muted: #abacb2;
 	pointer-events: none;
 	user-select: none;
 	width: fit-content;
 	max-width: 100%;
-	padding: 0.5rem 0;
-	border: 1px solid var(--softGrey);
+	padding: 0.75rem 0;
+	border: 1px solid var(--discord-divider);
 	border-radius: 0.5rem;
-	background-color: var(--dark);
+	background-color: transparent;
 	font-family: "gg sans", "Inter", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-	color: #dbdee1;
+	color: var(--discord-text);
 }
 
 .discord-chat * {
@@ -32,7 +39,7 @@
 .message {
 	display: flex;
 	gap: 0.75rem;
-	padding: 0.125rem 0.75rem;
+	padding: 0 1rem;
 }
 
 .message .avatar {
@@ -65,7 +72,7 @@
 .message time {
 	margin-left: 0.25rem;
 	font-size: 0.75rem;
-	color: #949ba4;
+	color: var(--discord-muted);
 }
 
 .message .text {
@@ -75,54 +82,164 @@
 }
 
 .message .link {
-	color: #00a8fc;
+	color: var(--discord-link);
 }
 
-.rich-embed {
-	width: fit-content;
-	max-width: 432px;
-	margin-top: 0.125rem;
-	padding: 0.5rem 1rem 1rem 0.75rem;
-	border-left: 4px solid var(--accentColor);
-	border-radius: 4px;
-	background-color: #2b2d31;
+.component-embed {
+	position: relative;
+	width: min(100%, 432px);
+	margin-top: 0.25rem;
+	padding: 0.75rem 0.75rem 0.75rem 1rem;
+	overflow: hidden;
+	border: 1px solid var(--discord-control);
+	border-radius: 10px;
+	background-color: var(--discord-surface);
 }
 
-.rich-embed .grid {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
-	column-gap: 1rem;
+.component-embed::before {
+	content: "";
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: 4px;
+	background-color: var(--discord-accent);
 }
 
-.rich-embed .provider,
-.rich-embed .title,
-.rich-embed .description {
-	grid-column: 1;
-	margin-top: 0.5rem;
+.component-section {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 1rem;
 }
 
-.rich-embed .provider {
-	font-size: 0.75rem;
+.component-heading,
+.component-details {
+	display: flex;
+	flex-direction: column;
 }
 
-.rich-embed .title {
-	font-size: 1rem;
+.component-copy {
+	min-width: 0;
+	flex: 1;
+}
+
+.component-heading {
+	gap: 0.125rem;
+}
+
+.component-title {
+	font-size: 1.25rem;
 	font-weight: 600;
-	color: #00a8fc;
+	line-height: 1.25;
+	text-decoration: none;
+	color: var(--discord-link);
 }
 
-.rich-embed .description {
+.component-byline,
+.component-subtitle {
+	font-size: 1rem;
+}
+
+.component-byline {
+	color: var(--discord-text);
+}
+
+.component-subtitle {
+	text-decoration: none;
+	color: var(--discord-link);
+}
+
+.component-action {
+	display: inline-flex;
+	align-items: center;
+	min-height: 40px;
+	padding: 0.25rem 0.875rem;
+	border-radius: 10px;
+	background-color: var(--discord-control);
 	font-size: 0.875rem;
-	line-height: 1.125rem;
-	white-space: pre-line;
+	font-weight: 500;
+	line-height: 1rem;
+	color: var(--discord-text);
 }
 
-.rich-embed .thumbnail {
-	grid-column: 2;
-	grid-row: 1 / 4;
-	width: 80px;
-	height: 80px;
-	margin-top: 0.5rem;
-	border-radius: 4px;
+.component-artwork {
+	position: relative;
+	flex: none;
+	width: 100px;
+	height: 100px;
+	border-radius: 8px;
+	overflow: hidden;
+}
+
+.component-artwork-background {
+	position: absolute;
+	inset: -0.75rem;
+	width: calc(100% + 1.5rem);
+	height: calc(100% + 1.5rem);
+	filter: blur(12px) brightness(0.58);
 	object-fit: cover;
+}
+
+.component-artwork-cover {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 78%;
+	height: 78%;
+	border-radius: 4px;
+	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.38);
+	transform: translate(-50%, -50%);
+	object-fit: cover;
+}
+
+.component-separator {
+	height: 1px;
+	margin: 0.75rem 0 0;
+	background-color: var(--discord-divider);
+}
+
+.component-details {
+	gap: 0.125rem;
+	margin-top: 0.625rem;
+	line-height: 1.35;
+}
+
+.component-album {
+	font-size: 1rem;
+	color: var(--discord-text);
+}
+
+.component-album-link {
+	text-decoration: none;
+	color: var(--discord-link);
+}
+
+.component-metadata {
+	font-size: 0.8125rem;
+	color: var(--discord-muted);
+}
+
+.component-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 0.75rem;
+}
+
+.component-external-icon {
+	flex: none;
+	width: 1.375rem;
+	height: 1.375rem;
+	margin-left: 0.5rem;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+@media (max-width: 480px) {
+	.component-artwork {
+		width: 72px;
+		height: 72px;
+	}
 }
